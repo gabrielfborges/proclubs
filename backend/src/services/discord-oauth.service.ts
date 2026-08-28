@@ -66,18 +66,44 @@ async function exchangeCode(code: string) {
     redirect_uri: config.redirectUri,
   });
 
-  const response = await fetch(`${DISCORD_OAUTH_API}/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${DISCORD_OAUTH_API}/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+  } catch (error) {
+    console.error("Falha de rede ao trocar o codigo OAuth do Discord.", error);
+    throw new AppError("Nao foi possivel acessar o servico de autorizacao do Discord.", 502);
+  }
+
   if (!response.ok) {
-    throw new AppError("Nao foi possivel concluir a autorizacao do Discord.", 502);
+    const rawBody = await response.text();
+    let detail = "";
+    try {
+      const parsed = JSON.parse(rawBody) as {
+        error?: string;
+        error_description?: string;
+        message?: string;
+      };
+      detail = parsed.error_description || parsed.message || parsed.error || "";
+    } catch {
+      detail = rawBody.slice(0, 160);
+    }
+    console.error("Discord rejeitou a troca do codigo OAuth.", {
+      status: response.status,
+      detail,
+      redirectUri: config.redirectUri,
+    });
+    throw new AppError(
+      `Nao foi possivel concluir a autorizacao do Discord${detail ? `: ${detail}` : "."}`,
+      502
+    );
   }
 
   return (await response.json()) as { access_token?: string };
 }
-
 export async function completeDiscordRegistration(state: string, code: string) {
   const config = oauthConfig();
   const pending = pendingRegistrations.get(state);
