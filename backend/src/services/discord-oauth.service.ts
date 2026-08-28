@@ -60,8 +60,6 @@ export function beginDiscordRegistration(data: DiscordRegistrationData) {
 async function exchangeCode(code: string) {
   const config = oauthConfig();
   const body = new URLSearchParams({
-    client_id: config.clientId,
-    client_secret: config.clientSecret,
     grant_type: "authorization_code",
     code,
     redirect_uri: config.redirectUri,
@@ -69,10 +67,12 @@ async function exchangeCode(code: string) {
 
   let response: Response;
   try {
-    response = await fetch(`${DISCORD_TOKEN_API}`, {
+    response = await fetch(DISCORD_TOKEN_API, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+        Authorization: `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64")}`,
         "User-Agent": "FC-Pro-Clubs-Manager/1.0",
       },
       body,
@@ -93,7 +93,9 @@ async function exchangeCode(code: string) {
       };
       detail = parsed.error_description || parsed.message || parsed.error || "";
     } catch {
-      detail = /<(!doctype|html)/i.test(rawBody) ? "o servidor retornou uma pagina HTML em vez da API" : rawBody.slice(0, 160);
+      detail = /<(!doctype|html)/i.test(rawBody)
+        ? `o servidor retornou uma pagina HTML em vez da API (HTTP ${response.status})`
+        : rawBody.slice(0, 160);
     }
     console.error("Discord rejeitou a troca do codigo OAuth.", {
       status: response.status,
