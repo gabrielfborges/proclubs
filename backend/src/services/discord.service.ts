@@ -3,7 +3,7 @@ import { AppError } from "../middleware/errorHandler";
 type DiscordCaptain = {
   id: string;
   username: string;
-  discordId: string;
+  discordId: string | null;
 };
 
 type MatchForDiscord = {
@@ -27,7 +27,7 @@ const CAPTAIN_PERMISSIONS = String(
 );
 const ADMINISTRATOR = String(1 << 3);
 
-function requiredDiscordId(value: string | undefined, label: string) {
+function requiredDiscordId(value: string | null | undefined, label: string) {
   if (!value || !/^\d{15,25}$/.test(value)) {
     throw new AppError(`${label} nao foi configurado corretamente no backend.`, 503);
   }

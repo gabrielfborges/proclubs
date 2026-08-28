@@ -4,16 +4,7 @@ import { AppError } from "../middleware/errorHandler";
 const DISCORD_OAUTH_API = "https://discord.com/oauth2";
 const DISCORD_TOKEN_API = "https://discord.com/api/v10/oauth2/token";
 const DISCORD_API = "https://discord.com/api/v10";
-const pendingRegistrations = new Map<
-  string,
-  { username: string; email: string; passwordHash: string; expiresAt: number }
->();
-
-export type DiscordRegistrationData = {
-  username: string;
-  email: string;
-  passwordHash: string;
-};
+const pendingLinks = new Map<string, { userId: string; expiresAt: number }>();
 
 export type DiscordOAuthUser = {
   id: string;
@@ -35,15 +26,15 @@ function oauthConfig() {
   return { clientId, clientSecret, frontendUrl, redirectUri };
 }
 
-export function beginDiscordRegistration(data: DiscordRegistrationData) {
+export function beginDiscordLink(userId: string) {
   const config = oauthConfig();
   const now = Date.now();
-  for (const [state, pending] of pendingRegistrations) {
-    if (pending.expiresAt <= now) pendingRegistrations.delete(state);
+  for (const [state, pending] of pendingLinks) {
+    if (pending.expiresAt <= now) pendingLinks.delete(state);
   }
 
   const state = randomUUID();
-  pendingRegistrations.set(state, { ...data, expiresAt: now + 10 * 60 * 1000 });
+  pendingLinks.set(state, { userId, expiresAt: now + 10 * 60 * 1000 });
 
   const params = new URLSearchParams({
     response_type: "code",
@@ -96,31 +87,40 @@ async function exchangeCode(code: string) {
         parsed.error_description ||
         parsed.message ||
         parsed.error ||
-        `resposta sem detalhe (HTTP ${response.status}, ${contentType})`;
+        detail;
     } catch {
       detail = /<(!doctype|html)/i.test(rawBody)
         ? `o servidor retornou uma pagina HTML em vez da API (HTTP ${response.status})`
         : rawBody.trim()
           ? rawBody.slice(0, 160)
-          : `resposta vazia (HTTP ${response.status}, ${contentType})`;
+          : detail;
     }
+
     console.error("Discord rejeitou a troca do codigo OAuth.", {
       status: response.status,
       detail,
       redirectUri: config.redirectUri,
     });
-    throw new AppError(
-      `Nao foi possivel concluir a autorizacao do Discord${detail ? `: ${detail}` : "."}`,
-      502
-    );
+
+    if (response.status === 429) {
+      throw new AppError("O Discord limitou temporariamente as tentativas. Aguarde alguns minutos e tente novamente.", 429);
+    }
+
+    throw new AppError(`Nao foi possivel concluir a vinculacao do Discord: ${detail}`, 502);
   }
 
-  return (await response.json()) as { access_token?: string };
+  try {
+    return (await response.json()) as { access_token?: string };
+  } catch (error) {
+    console.error("O Discord retornou uma resposta invalida na troca OAuth.", error);
+    throw new AppError("O Discord retornou uma resposta invalida na autorizacao.", 502);
+  }
 }
-export async function completeDiscordRegistration(state: string, code: string) {
+
+export async function completeDiscordLink(state: string, code: string) {
   const config = oauthConfig();
-  const pending = pendingRegistrations.get(state);
-  pendingRegistrations.delete(state);
+  const pending = pendingLinks.get(state);
+  pendingLinks.delete(state);
   if (!pending || pending.expiresAt <= Date.now()) {
     throw new AppError("A sessao de vinculacao do Discord expirou. Tente novamente.", 400);
   }
@@ -132,12 +132,13 @@ export async function completeDiscordRegistration(state: string, code: string) {
 
   const response = await fetch(`${DISCORD_API}/users/@me`, {
     headers: {
+      Accept: "application/json",
       Authorization: `Bearer ${token.access_token}`,
       "User-Agent": "FC-Pro-Clubs-Manager/1.0",
     },
   });
   if (!response.ok) {
-    throw new AppError("Nao foi possivel obter os dados da sua conta Discord.", 502);
+    throw new AppError(`Nao foi possivel obter os dados da sua conta Discord (HTTP ${response.status}).`, 502);
   }
 
   const discordUser = (await response.json()) as { id?: string; username?: string };
@@ -145,5 +146,5 @@ export async function completeDiscordRegistration(state: string, code: string) {
     throw new AppError("O Discord retornou dados incompletos da conta.", 502);
   }
 
-  return { config, pending, discordUser: discordUser as DiscordOAuthUser };
+  return { config, userId: pending.userId, discordUser: discordUser as DiscordOAuthUser };
 }

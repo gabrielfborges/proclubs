@@ -17,7 +17,7 @@ async function main() {
       data: {
         role: "ADMIN",
         ...(existing.email.startsWith("legacy-") ? { email } : {}),
-        ...(existing.discordId.startsWith("legacy-") ? { discordId } : {}),
+        ...(!existing.discordId || existing.discordId.startsWith("legacy-") ? { discordId } : {}),
       },
     });
     console.log(`Usuario "${username}" ja existe e esta como administrador.`);

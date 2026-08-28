@@ -15,11 +15,13 @@ export interface RegisterData {
   password: string;
 }
 
-export async function beginDiscordRegistrationRequest(registerData: RegisterData) {
-  const { data } = await api.post<{ authorizationUrl: string }>(
-    "/auth/discord/begin",
-    registerData
-  );
+export async function registerRequest(registerData: RegisterData) {
+  const { data } = await api.post<{ user: User }>("/auth/register", registerData);
+  return data;
+}
+
+export async function beginDiscordLinkRequest() {
+  const { data } = await api.post<{ authorizationUrl: string }>("/auth/discord/begin");
   return data;
 }
 

@@ -1,14 +1,40 @@
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { beginDiscordLinkRequest } from "../api/auth";
+import { getApiErrorMessage } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import logoUrl from "../../../img/logo.png";
 
 export function Navbar() {
   const { isAuthenticated, isAdmin, user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [linkingDiscord, setLinkingDiscord] = useState(false);
+  const [discordError, setDiscordError] = useState("");
+
+  useEffect(() => {
+    const message = new URLSearchParams(location.search).get("discord_error");
+    if (message) {
+      setDiscordError(message);
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.pathname, location.search, navigate]);
 
   function handleLogout() {
     logout();
     navigate("/");
+  }
+
+  async function handleLinkDiscord() {
+    setDiscordError("");
+    setLinkingDiscord(true);
+    try {
+      const { authorizationUrl } = await beginDiscordLinkRequest();
+      window.location.assign(authorizationUrl);
+    } catch (err) {
+      setDiscordError(getApiErrorMessage(err));
+      setLinkingDiscord(false);
+    }
   }
 
   return (
@@ -48,6 +74,15 @@ export function Navbar() {
                   Admin
                 </NavLink>
               )}
+              {!user?.discordId && (
+                <button
+                  onClick={handleLinkDiscord}
+                  className="btn-secondary !py-1.5"
+                  disabled={linkingDiscord}
+                >
+                  {linkingDiscord ? "Abrindo Discord..." : "Vincular Discord"}
+                </button>
+              )}
               <span className="hidden text-slate-500 sm:inline">{user?.username}</span>
               <button onClick={handleLogout} className="btn-secondary !py-1.5">
                 Sair
@@ -65,6 +100,11 @@ export function Navbar() {
           )}
         </nav>
       </div>
+      {discordError && (
+        <div className="border-t border-red-500/20 bg-red-500/10 px-4 py-2 text-center text-xs text-red-300">
+          {discordError}
+        </div>
+      )}
     </header>
   );
 }

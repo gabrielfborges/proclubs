@@ -95,6 +95,6 @@ export interface User {
   id: string;
   username: string;
   email: string;
-  discordId: string;
+  discordId: string | null;
   role: UserRole;
 }

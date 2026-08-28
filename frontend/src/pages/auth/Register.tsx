@@ -1,22 +1,17 @@
-import { FormEvent, useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { beginDiscordRegistrationRequest } from "../../api/auth";
+import { FormEvent, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { registerRequest } from "../../api/auth";
 import { getApiErrorMessage } from "../../api/client";
 import { ErrorBox } from "../../components/Loading";
 
 export function Register() {
-  const location = useLocation();
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const message = new URLSearchParams(location.search).get("discord_error");
-    if (message) setError(message);
-  }, [location.search]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -29,14 +24,11 @@ export function Register() {
 
     setLoading(true);
     try {
-      const { authorizationUrl } = await beginDiscordRegistrationRequest({
-        username,
-        email,
-        password,
-      });
-      window.location.assign(authorizationUrl);
+      await registerRequest({ username, email, password });
+      navigate("/login", { replace: true, state: { registered: true } });
     } catch (err) {
       setError(getApiErrorMessage(err));
+    } finally {
       setLoading(false);
     }
   }
@@ -46,7 +38,7 @@ export function Register() {
       <div className="card p-6">
         <h1 className="mb-1 text-xl font-bold">Criar conta</h1>
         <p className="mb-6 text-sm text-slate-400">
-          Cadastre-se e vincule sua conta do Discord para participar da comunidade Pro Clubs.
+          Cadastre-se para participar da comunidade Pro Clubs. Você poderá vincular o Discord depois.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -106,7 +98,7 @@ export function Register() {
           {error && <ErrorBox message={error} />}
 
           <button type="submit" className="btn-primary w-full" disabled={loading}>
-            {loading ? "Abrindo Discord..." : "Vincular Discord e criar conta"}
+            {loading ? "Criando conta..." : "Criar conta"}
           </button>
         </form>
 

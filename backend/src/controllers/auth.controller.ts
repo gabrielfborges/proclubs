@@ -5,8 +5,8 @@ import { prisma } from "../prisma";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { signUserToken } from "../utils/jwt";
 import {
-  beginDiscordRegistration as beginDiscordOAuth,
-  completeDiscordRegistration,
+  beginDiscordLink as beginDiscordOAuth,
+  completeDiscordLink,
 } from "../services/discord-oauth.service";
 
 const loginSchema = z.object({
@@ -29,7 +29,7 @@ function publicUser(user: {
   id: string;
   username: string;
   email: string;
-  discordId: string;
+  discordId: string | null;
   role: "ADMIN" | "USER";
 }) {
   return {
@@ -60,7 +60,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   res.json({ token, user: safeUser });
 });
 
-export const beginDiscordRegistration = asyncHandler(async (req: Request, res: Response) => {
+export const register = asyncHandler(async (req: Request, res: Response) => {
   const data = registrationSchema.parse(req.body);
   const username = data.username.trim();
   const email = data.email.trim().toLowerCase();
@@ -73,7 +73,21 @@ export const beginDiscordRegistration = asyncHandler(async (req: Request, res: R
   }
 
   const passwordHash = await bcrypt.hash(data.password, 10);
-  const authorizationUrl = beginDiscordOAuth({ username, email, passwordHash });
+  const user = await prisma.user.create({
+    data: {
+      username,
+      email,
+      passwordHash,
+      role: "USER",
+    },
+  });
+
+  res.status(201).json({ user: publicUser(user) });
+});
+
+export const beginDiscordLink = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user?.id) throw new AppError("Usuario nao autenticado.", 401);
+  const authorizationUrl = beginDiscordOAuth(req.user.id);
   res.json({ authorizationUrl });
 });
 
@@ -83,34 +97,26 @@ export const discordCallback = asyncHandler(async (req: Request, res: Response) 
 
   if (typeof error === "string" || typeof code !== "string" || typeof state !== "string") {
     const message = typeof error === "string" ? "A autorizacao do Discord foi cancelada." : "Resposta invalida do Discord.";
-    return res.redirect(`${frontendUrl}/register?discord_error=${encodeURIComponent(message)}`);
+    return res.redirect(`${frontendUrl}/?discord_error=${encodeURIComponent(message)}`);
   }
 
   try {
-    const { config, pending, discordUser } = await completeDiscordRegistration(state, code);
-    const existing = await prisma.user.findFirst({
-      where: {
-        OR: [{ username: pending.username }, { email: pending.email }, { discordId: discordUser.id }],
-      },
-    });
-    if (existing) {
-      throw new AppError("Esse usuario, email ou Discord ja esta vinculado a uma conta.", 409);
+    const { config, userId, discordUser } = await completeDiscordLink(state, code);
+    const existing = await prisma.user.findUnique({ where: { discordId: discordUser.id } });
+    if (existing && existing.id !== userId) {
+      throw new AppError("Esse Discord ja esta vinculado a outra conta.", 409);
     }
-    const user = await prisma.user.create({
-      data: {
-        username: pending.username,
-        email: pending.email,
-        discordId: discordUser.id,
-        passwordHash: pending.passwordHash,
-        role: "USER",
-      },
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { discordId: discordUser.id },
     });
 
     const token = signUserToken(publicUser(user));
     return res.redirect(`${config.frontendUrl}/auth/callback#auth_token=${encodeURIComponent(token)}`);
   } catch (err) {
-    const message = err instanceof AppError ? err.message : "Nao foi possivel concluir o cadastro com Discord.";
-    return res.redirect(`${frontendUrl}/register?discord_error=${encodeURIComponent(message)}`);
+    const message = err instanceof AppError ? err.message : "Nao foi possivel concluir a vinculacao do Discord.";
+    return res.redirect(`${frontendUrl}/?discord_error=${encodeURIComponent(message)}`);
   }
 });
 

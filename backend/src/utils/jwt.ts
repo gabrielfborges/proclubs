@@ -9,7 +9,7 @@ export interface UserTokenPayload {
   id: string;
   username: string;
   email: string;
-  discordId: string;
+  discordId: string | null;
   role: UserRole;
 }
 
