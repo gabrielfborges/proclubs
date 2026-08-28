@@ -7,19 +7,29 @@ const prisma = new PrismaClient();
 async function main() {
   const username = process.env.ADMIN_USERNAME || "admin";
   const password = process.env.ADMIN_PASSWORD || "admin123";
+  const email = process.env.ADMIN_EMAIL || "admin@proclubs.local";
+  const discordId = process.env.ADMIN_DISCORD_ID || "admin";
 
-  const existing = await prisma.admin.findUnique({ where: { username } });
+  const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) {
-    console.log(`Admin "${username}" ja existe. Nada a fazer.`);
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        role: "ADMIN",
+        ...(existing.email.startsWith("legacy-") ? { email } : {}),
+        ...(existing.discordId.startsWith("legacy-") ? { discordId } : {}),
+      },
+    });
+    console.log(`Usuario "${username}" ja existe e esta como administrador.`);
     return;
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.admin.create({
-    data: { username, passwordHash },
+  await prisma.user.create({
+    data: { username, email, discordId, passwordHash, role: "ADMIN" },
   });
 
-  console.log(`Admin "${username}" criado com sucesso.`);
+  console.log(`Administrador "${username}" criado com sucesso.`);
 }
 
 main()

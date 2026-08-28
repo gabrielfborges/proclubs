@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import logoUrl from "../../../img/logo.png";
 
 export function Navbar() {
-  const { isAuthenticated, admin, logout } = useAuth();
+  const { isAuthenticated, isAdmin, user, logout } = useAuth();
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -38,23 +38,30 @@ export function Navbar() {
 
           {isAuthenticated ? (
             <>
-              <NavLink
-                to="/admin"
-                className={({ isActive }) =>
-                  `hover:text-accent-400 transition-colors ${isActive ? "text-accent-400" : "text-slate-300"}`
-                }
-              >
-                Admin
-              </NavLink>
-              <span className="hidden text-slate-500 sm:inline">{admin?.username}</span>
+              {isAdmin && (
+                <NavLink
+                  to="/admin"
+                  className={({ isActive }) =>
+                    `hover:text-accent-400 transition-colors ${isActive ? "text-accent-400" : "text-slate-300"}`
+                  }
+                >
+                  Admin
+                </NavLink>
+              )}
+              <span className="hidden text-slate-500 sm:inline">{user?.username}</span>
               <button onClick={handleLogout} className="btn-secondary !py-1.5">
                 Sair
               </button>
             </>
           ) : (
-            <Link to="/admin/login" className="btn-secondary !py-1.5">
-              Login admin
-            </Link>
+            <>
+              <Link to="/login" className="btn-secondary !py-1.5">
+                Entrar
+              </Link>
+              <Link to="/register" className="btn-primary !py-1.5">
+                Criar conta
+              </Link>
+            </>
           )}
         </nav>
       </div>

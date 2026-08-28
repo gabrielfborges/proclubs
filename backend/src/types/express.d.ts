@@ -1,9 +1,9 @@
-import { AdminTokenPayload } from "../utils/jwt";
+import { UserTokenPayload } from "../utils/jwt";
 
 declare global {
   namespace Express {
     interface Request {
-      admin?: AdminTokenPayload;
+      user?: UserTokenPayload;
     }
   }
 }

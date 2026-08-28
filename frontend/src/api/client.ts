@@ -1,12 +1,14 @@
 import axios from "axios";
 
+export const TOKEN_KEY = "fc_auth_token";
+export const USER_KEY = "fc_user";
+
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:3333/api",
 });
 
-// Anexa o token do admin (se existir) em toda requisicao
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("fc_admin_token");
+  const token = localStorage.getItem(TOKEN_KEY);
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -14,11 +16,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Se o token expirar/for invalido, limpa a sessao local
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error?.response?.status === 401) {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
       localStorage.removeItem("fc_admin_token");
       localStorage.removeItem("fc_admin_user");
     }

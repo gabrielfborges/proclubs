@@ -1,40 +1,66 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import { Admin } from "../types";
-import { loginRequest } from "../api/auth";
+import { User } from "../types";
+import { loginRequest, registerRequest } from "../api/auth";
+import { TOKEN_KEY, USER_KEY } from "../api/client";
 
 interface AuthContextValue {
-  admin: Admin | null;
+  user: User | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  isAdmin: boolean;
+  login: (identifier: string, password: string) => Promise<User>;
+  register: (username: string, email: string, discordId: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const TOKEN_KEY = "fc_admin_token";
-const USER_KEY = "fc_admin_user";
+function getStoredUser(): User | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    localStorage.removeItem(USER_KEY);
+    return null;
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [admin, setAdmin] = useState<Admin | null>(() => {
-    const raw = localStorage.getItem(USER_KEY);
-    return raw ? (JSON.parse(raw) as Admin) : null;
-  });
+  const [user, setUser] = useState<User | null>(getStoredUser);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const data = await loginRequest(username, password);
+  const login = useCallback(async (identifier: string, password: string) => {
+    const data = await loginRequest(identifier, password);
     localStorage.setItem(TOKEN_KEY, data.token);
-    localStorage.setItem(USER_KEY, JSON.stringify(data.admin));
-    setAdmin(data.admin);
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    setUser(data.user);
+    return data.user;
   }, []);
+
+  const register = useCallback(
+    async (username: string, email: string, discordId: string, password: string) => {
+      await registerRequest({ username, email, discordId, password });
+    },
+    []
+  );
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
-    setAdmin(null);
+    localStorage.removeItem("fc_admin_token");
+    localStorage.removeItem("fc_admin_user");
+    setUser(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ admin, isAuthenticated: !!admin, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        isAdmin: user?.role === "ADMIN",
+        login,
+        register,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

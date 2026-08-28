@@ -1,5 +1,6 @@
 export type ChampionshipStatus = "OPEN" | "IN_PROGRESS" | "FINISHED";
 export type ChampionshipStage = "REGISTRATION" | "GROUP_STAGE" | "KNOCKOUT_STAGE" | "FINISHED";
+export type UserRole = "ADMIN" | "USER";
 
 export interface Team {
   id: string;
@@ -83,7 +84,10 @@ export interface Match {
   status: MatchStatus;
 }
 
-export interface Admin {
+export interface User {
   id: string;
   username: string;
+  email: string;
+  discordId: string;
+  role: UserRole;
 }
