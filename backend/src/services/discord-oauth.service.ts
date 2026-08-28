@@ -84,18 +84,25 @@ async function exchangeCode(code: string) {
 
   if (!response.ok) {
     const rawBody = await response.text();
-    let detail = "";
+    const contentType = response.headers.get("content-type") || "desconhecido";
+    let detail = `resposta sem detalhe (HTTP ${response.status}, ${contentType})`;
     try {
       const parsed = JSON.parse(rawBody) as {
         error?: string;
         error_description?: string;
         message?: string;
       };
-      detail = parsed.error_description || parsed.message || parsed.error || "";
+      detail =
+        parsed.error_description ||
+        parsed.message ||
+        parsed.error ||
+        `resposta sem detalhe (HTTP ${response.status}, ${contentType})`;
     } catch {
       detail = /<(!doctype|html)/i.test(rawBody)
         ? `o servidor retornou uma pagina HTML em vez da API (HTTP ${response.status})`
-        : rawBody.slice(0, 160);
+        : rawBody.trim()
+          ? rawBody.slice(0, 160)
+          : `resposta vazia (HTTP ${response.status}, ${contentType})`;
     }
     console.error("Discord rejeitou a troca do codigo OAuth.", {
       status: response.status,
