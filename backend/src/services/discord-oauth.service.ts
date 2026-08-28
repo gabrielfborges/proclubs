@@ -1,7 +1,8 @@
 import { randomUUID } from "crypto";
 import { AppError } from "../middleware/errorHandler";
 
-const DISCORD_OAUTH_API = "https://discord.com/api/oauth2";
+const DISCORD_OAUTH_API = "https://discord.com/oauth2";
+const DISCORD_TOKEN_API = "https://discord.com/api/v10/oauth2/token";
 const DISCORD_API = "https://discord.com/api/v10";
 const pendingRegistrations = new Map<
   string,
@@ -68,9 +69,12 @@ async function exchangeCode(code: string) {
 
   let response: Response;
   try {
-    response = await fetch(`${DISCORD_OAUTH_API}/token`, {
+    response = await fetch(`${DISCORD_TOKEN_API}`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "FC-Pro-Clubs-Manager/1.0",
+      },
       body,
     });
   } catch (error) {
@@ -89,7 +93,7 @@ async function exchangeCode(code: string) {
       };
       detail = parsed.error_description || parsed.message || parsed.error || "";
     } catch {
-      detail = rawBody.slice(0, 160);
+      detail = /<(!doctype|html)/i.test(rawBody) ? "o servidor retornou uma pagina HTML em vez da API" : rawBody.slice(0, 160);
     }
     console.error("Discord rejeitou a troca do codigo OAuth.", {
       status: response.status,
@@ -118,7 +122,10 @@ export async function completeDiscordRegistration(state: string, code: string) {
   }
 
   const response = await fetch(`${DISCORD_API}/users/@me`, {
-    headers: { Authorization: `Bearer ${token.access_token}` },
+    headers: {
+      Authorization: `Bearer ${token.access_token}`,
+      "User-Agent": "FC-Pro-Clubs-Manager/1.0",
+    },
   });
   if (!response.ok) {
     throw new AppError("Nao foi possivel obter os dados da sua conta Discord.", 502);
