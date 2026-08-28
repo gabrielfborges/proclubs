@@ -31,7 +31,7 @@ body {
 }
 
 .btn-primary {
-  @apply btn bg-accent-600 hover:bg-accent-500 text-white;
+  @apply btn bg-accent-600 hover:bg-accent-500 text-base-950;
 }
 
 .btn-secondary {

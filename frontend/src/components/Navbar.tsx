@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import logoUrl from "../../../img/logo.png";
 
 export function Navbar() {
   const { isAuthenticated, admin, logout } = useAuth();
@@ -13,10 +14,12 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-30 border-b border-base-700 bg-base-950/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link to="/" className="flex items-center gap-2 font-bold text-lg">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-600 text-white">
-            FC
-          </span>
+        <Link to="/" className="flex items-center gap-3 font-bold text-lg">
+          <img
+            src={logoUrl}
+            alt="FC Pro Clubs Manager"
+            className="h-10 w-10 object-contain"
+          />
           <span>
             Pro Clubs <span className="text-accent-400">Manager</span>
           </span>
