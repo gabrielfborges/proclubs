@@ -37,6 +37,8 @@ model User {
   passwordHash String
   role         UserRole @default(USER)
   createdAt    DateTime @default(now())
+
+  captainOf    Team[]   @relation("TeamCaptain")
 }
 
 model Championship {
@@ -61,6 +63,9 @@ model Team {
   id             String       @id @default(uuid())
   name           String
   logoUrl        String?
+  eaClubId       String?
+  captainUserId  String?
+  captainUser    User?        @relation("TeamCaptain", fields: [captainUserId], references: [id], onDelete: SetNull)
   championshipId String
   championship   Championship @relation("ChampionshipTeams", fields: [championshipId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())

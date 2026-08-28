@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import {
   fetchChampionship,
   fetchTeams,
+  fetchUsersRequest,
   createTeamRequest,
   deleteTeamRequest,
   fetchGroups,
@@ -10,13 +11,14 @@ import {
   generateMatchesRequest,
   fetchMatches,
   updateMatchScoreRequest,
+  fetchMatchScoreFromEaRequest,
   resetMatchScoreRequest,
   fetchKnockoutBracket,
   fetchKnockoutReadiness,
   generateKnockoutRequest,
   advanceKnockoutRequest,
 } from "../../api/championships";
-import { Championship, Group, Match, Team } from "../../types";
+import { Championship, Group, Match, Team, User } from "../../types";
 import { Loading, ErrorBox } from "../../components/Loading";
 import { StatusBadge } from "../../components/StatusBadge";
 import { BracketView } from "../../components/BracketView";
@@ -28,6 +30,7 @@ export function ChampionshipManage() {
   const { id } = useParams<{ id: string }>();
   const [championship, setChampionship] = useState<Championship | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupMatches, setGroupMatches] = useState<Match[]>([]);
   const [knockoutMatches, setKnockoutMatches] = useState<Match[]>([]);
@@ -42,9 +45,10 @@ export function ChampionshipManage() {
     if (!id) return;
     setLoading(true);
     try {
-      const [champ, teamList, groupList, matches, knockout, readiness] = await Promise.all([
+      const [champ, teamList, userList, groupList, matches, knockout, readiness] = await Promise.all([
         fetchChampionship(id),
         fetchTeams(id),
+        fetchUsersRequest(),
         fetchGroups(id),
         fetchMatches(id, "GROUP"),
         fetchKnockoutBracket(id),
@@ -52,6 +56,7 @@ export function ChampionshipManage() {
       ]);
       setChampionship(champ);
       setTeams(teamList);
+      setUsers(userList);
       setGroups(groupList);
       setGroupMatches(matches);
       setKnockoutMatches(knockout);
@@ -129,9 +134,10 @@ export function ChampionshipManage() {
         <TeamsPanel
           championship={championship}
           teams={teams}
+          users={users}
           disabled={actionLoading}
-          onAdd={(name, logoUrl) =>
-            runAction(() => createTeamRequest(id, { name, logoUrl: logoUrl || undefined }))
+          onAdd={(name, logoUrl, eaClubId, captainUserId) =>
+            runAction(() => createTeamRequest(id, { name, logoUrl: logoUrl || undefined, eaClubId, captainUserId }))
           }
           onRemove={(teamId) => runAction(() => deleteTeamRequest(teamId))}
         />
@@ -148,6 +154,7 @@ export function ChampionshipManage() {
           onSaveScore={(matchId, homeScore, awayScore) =>
             runAction(() => updateMatchScoreRequest(matchId, { homeScore, awayScore }))
           }
+          onFetchScore={(matchId) => runAction(() => fetchMatchScoreFromEaRequest(matchId))}
           onResetScore={(matchId) => runAction(() => resetMatchScoreRequest(matchId))}
         />
       )}
@@ -165,6 +172,7 @@ export function ChampionshipManage() {
               updateMatchScoreRequest(matchId, { homeScore, awayScore, homePenalty, awayPenalty })
             )
           }
+          onFetchScore={(matchId) => runAction(() => fetchMatchScoreFromEaRequest(matchId))}
           onResetScore={(matchId) => runAction(() => resetMatchScoreRequest(matchId))}
         />
       )}
@@ -177,26 +185,32 @@ export function ChampionshipManage() {
 function TeamsPanel({
   championship,
   teams,
+  users,
   disabled,
   onAdd,
   onRemove,
 }: {
   championship: Championship;
   teams: Team[];
+  users: User[];
   disabled: boolean;
-  onAdd: (name: string, logoUrl: string) => void;
+  onAdd: (name: string, logoUrl: string, eaClubId: string, captainUserId: string) => void;
   onRemove: (teamId: string) => void;
 }) {
   const [name, setName] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [eaClubId, setEaClubId] = useState("");
+  const [captainUserId, setCaptainUserId] = useState("");
   const canAdd = championship.stage === "REGISTRATION" && teams.length < championship.maxTeams;
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
-    onAdd(name.trim(), logoUrl.trim());
+    if (!name.trim() || !eaClubId.trim() || !captainUserId.trim()) return;
+    onAdd(name.trim(), logoUrl.trim(), eaClubId.trim(), captainUserId.trim());
     setName("");
     setLogoUrl("");
+    setEaClubId("");
+    setCaptainUserId("");
   }
 
   return (
@@ -206,16 +220,37 @@ function TeamsPanel({
       )}
 
       {canAdd && (
-        <form onSubmit={handleSubmit} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
-          <div className="flex-1">
+        <form onSubmit={handleSubmit} className="card grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
+          <div>
             <label className="label">Nome do time</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
-          <div className="flex-1">
+          <div>
+            <label className="label">EaClubId</label>
+            <input
+              className="input"
+              value={eaClubId}
+              onChange={(e) => setEaClubId(e.target.value.replace(/[^0-9]/g, ""))}
+              inputMode="numeric"
+              required
+            />
+          </div>
+          <div>
+            <label className="label">Capitao</label>
+            <select className="input" value={captainUserId} onChange={(e) => setCaptainUserId(e.target.value)} required>
+              <option value="">Selecione um usuario</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.username}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="label">URL do escudo (opcional)</label>
             <input className="input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
           </div>
-          <button type="submit" className="btn-primary" disabled={disabled}>
+          <button type="submit" className="btn-primary sm:col-span-2 lg:col-span-1" disabled={disabled}>
             Adicionar time
           </button>
         </form>
@@ -232,7 +267,12 @@ function TeamsPanel({
                   {team.name.slice(0, 2).toUpperCase()}
                 </div>
               )}
-              <span className="font-medium">{team.name}</span>
+              <div>
+                <span className="block font-medium">{team.name}</span>
+                <span className="block text-xs text-slate-500">
+                  Capitao: {team.captainUser?.username || "nao informado"} • EA: {team.eaClubId || "nao informado"}
+                </span>
+              </div>
             </div>
             {championship.stage === "REGISTRATION" && (
               <button
@@ -266,6 +306,7 @@ function GroupsPanel({
   onGenerateMatches,
   onSaveScore,
   onResetScore,
+  onFetchScore,
 }: {
   championship: Championship;
   groups: Group[];
@@ -275,6 +316,7 @@ function GroupsPanel({
   onGenerateMatches: () => void;
   onSaveScore: (matchId: string, home: number, away: number) => void;
   onResetScore: (matchId: string) => void;
+  onFetchScore: (matchId: string) => void;
 }) {
   const hasPlayedMatches = matches.some((m) => m.status === "PLAYED");
 
@@ -327,6 +369,7 @@ function GroupsPanel({
                 disabled={disabled}
                 onSave={(home, away) => onSaveScore(match.id, home, away)}
                 onReset={() => onResetScore(match.id)}
+                onFetchScore={() => onFetchScore(match.id)}
               />
             ))}
           </div>
@@ -347,6 +390,7 @@ function KnockoutPanel({
   onAdvance,
   onSaveScore,
   onResetScore,
+  onFetchScore,
 }: {
   championship: Championship;
   matches: Match[];
@@ -362,6 +406,7 @@ function KnockoutPanel({
     awayPenalty?: number
   ) => void;
   onResetScore: (matchId: string) => void;
+  onFetchScore: (matchId: string) => void;
 }) {
   const lastRound = matches.length > 0 ? matches[matches.length - 1].round : null;
   const currentRoundMatches = matches.filter((m) => m.round === lastRound);
@@ -426,6 +471,7 @@ function KnockoutPanel({
                     onSaveScore(match.id, home, away, penHome, penAway)
                   }
                   onReset={() => onResetScore(match.id)}
+                  onFetchScore={() => onFetchScore(match.id)}
                 />
               ))}
           </div>
@@ -443,12 +489,14 @@ function MatchScoreRow({
   allowPenalty,
   onSave,
   onReset,
+  onFetchScore,
 }: {
   match: Match;
   disabled: boolean;
   allowPenalty?: boolean;
   onSave: (home: number, away: number, penHome?: number, penAway?: number) => void;
   onReset: () => void;
+  onFetchScore?: () => void;
 }) {
   const [home, setHome] = useState(match.homeScore ?? 0);
   const [away, setAway] = useState(match.awayScore ?? 0);
@@ -514,6 +562,16 @@ function MatchScoreRow({
       )}
 
       <div className="flex justify-end gap-2">
+        {onFetchScore && match.homeTeam?.eaClubId && match.awayTeam?.eaClubId && (
+          <button
+            className="btn-secondary !py-1.5 !px-3 text-xs"
+            disabled={disabled}
+            onClick={onFetchScore}
+            title="Busca o resultado mais recente entre os dois EaClubIds na API da EA"
+          >
+            Buscar na EA
+          </button>
+        )}
         <button className="btn-primary !py-1.5 !px-3 text-xs" disabled={disabled} onClick={handleSave}>
           Salvar
         </button>

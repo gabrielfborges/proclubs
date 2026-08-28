@@ -1,0 +1,3 @@
+ALTER TABLE "Team"
+  ADD COLUMN "eaClubId" TEXT,
+  ADD COLUMN "captain" TEXT;

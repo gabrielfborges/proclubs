@@ -6,6 +6,9 @@ export interface Team {
   id: string;
   name: string;
   logoUrl: string | null;
+  eaClubId: string | null;
+  captainUserId: string | null;
+  captainUser?: Pick<User, "id" | "username"> | null;
   championshipId: string;
   createdAt: string;
 }
@@ -44,6 +47,7 @@ export interface StandingRow {
   teamId: string;
   teamName: string;
   logoUrl: string | null;
+
   played: number;
   wins: number;
   draws: number;

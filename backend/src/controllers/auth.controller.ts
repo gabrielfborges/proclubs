@@ -78,6 +78,12 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json({ user: publicUser(user) });
 });
 
+export const listUsers = asyncHandler(async (_req: Request, res: Response) => {
+  const users = await prisma.user.findMany({
+    orderBy: { username: "asc" },
+  });
+  res.json(users.map(publicUser));
+});
 export const me = asyncHandler(async (req: Request, res: Response) => {
   res.json({ user: req.user });
 });

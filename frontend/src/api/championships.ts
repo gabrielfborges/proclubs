@@ -1,5 +1,5 @@
 import { api } from "./client";
-import { Championship, Group, GroupStandings, Match, Team } from "../types";
+import { Championship, Group, GroupStandings, Match, Team, User } from "../types";
 
 export async function fetchChampionships() {
   const { data } = await api.get<Championship[]>("/championships");
@@ -33,6 +33,10 @@ export async function deleteChampionshipRequest(id: string) {
   await api.delete(`/championships/${id}`);
 }
 
+export async function fetchUsersRequest() {
+  const { data } = await api.get<User[]>("/auth/users");
+  return data;
+}
 export async function fetchTeams(championshipId: string) {
   const { data } = await api.get<Team[]>(`/championships/${championshipId}/teams`);
   return data;
@@ -40,7 +44,7 @@ export async function fetchTeams(championshipId: string) {
 
 export async function createTeamRequest(
   championshipId: string,
-  input: { name: string; logoUrl?: string }
+  input: { name: string; logoUrl?: string; eaClubId: string; captainUserId: string }
 ) {
   const { data } = await api.post<Team>(`/championships/${championshipId}/teams`, input);
   return data;
@@ -85,6 +89,10 @@ export async function updateMatchScoreRequest(
   return data;
 }
 
+export async function fetchMatchScoreFromEaRequest(matchId: string) {
+  const { data } = await api.post<Match>(`/championships/matches/${matchId}/score/ea`);
+  return data;
+}
 export async function resetMatchScoreRequest(matchId: string) {
   const { data } = await api.post<Match>(`/championships/matches/${matchId}/reset`);
   return data;

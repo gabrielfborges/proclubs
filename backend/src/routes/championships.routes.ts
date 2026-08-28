@@ -14,7 +14,12 @@ import {
   createGroupMatches,
   getStandings,
 } from "../controllers/group.controller";
-import { listMatches, updateMatchScore, resetMatchScore } from "../controllers/match.controller";
+import {
+  listMatches,
+  updateMatchScore,
+  resetMatchScore,
+  fetchMatchScoreFromEa,
+} from "../controllers/match.controller";
 import {
   getKnockoutBracket,
   getKnockoutReadiness,
@@ -46,6 +51,7 @@ router.get("/:championshipId/standings", getStandings);
 // --- Partidas ---
 router.get("/:championshipId/matches", listMatches);
 router.patch("/matches/:id/score", requireAdmin, updateMatchScore);
+router.post("/matches/:id/score/ea", requireAdmin, fetchMatchScoreFromEa);
 router.post("/matches/:id/reset", requireAdmin, resetMatchScore);
 
 // --- Mata-mata ---

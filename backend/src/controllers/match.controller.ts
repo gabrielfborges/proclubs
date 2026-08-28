@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
+import { findLatestEaMatch } from "../services/ea-clubs.service";
 
 export const listMatches = asyncHandler(async (req: Request, res: Response) => {
   const { phase, groupId } = req.query;
@@ -67,6 +68,46 @@ export const updateMatchScore = asyncHandler(async (req: Request, res: Response)
   res.json(updated);
 });
 
+export const fetchMatchScoreFromEa = asyncHandler(async (req: Request, res: Response) => {
+  const match = await prisma.match.findUnique({
+    where: { id: req.params.id },
+    include: { homeTeam: true, awayTeam: true },
+  });
+  if (!match) throw new AppError("Partida nao encontrada.", 404);
+  if (!match.homeTeam || !match.awayTeam) {
+    throw new AppError("Esta partida nao possui dois times definidos (bye).");
+  }
+  if (!match.homeTeam.eaClubId || !match.awayTeam.eaClubId) {
+    throw new AppError("Cadastre o EaClubId dos dois times antes de buscar o resultado.");
+  }
+
+  const result = await findLatestEaMatch(match.homeTeam.eaClubId, match.awayTeam.eaClubId);
+  if (match.phase === "KNOCKOUT" && result.homeScore === result.awayScore) {
+    throw new AppError(
+      "A API da EA retornou empate. Informe os penaltis manualmente para concluir o mata-mata."
+    );
+  }
+
+  const updated = await prisma.match.update({
+    where: { id: match.id },
+    data: {
+      homeScore: result.homeScore,
+      awayScore: result.awayScore,
+      homePenalty: null,
+      awayPenalty: null,
+      status: "PLAYED",
+      winnerTeamId:
+        match.phase === "KNOCKOUT"
+          ? result.homeScore > result.awayScore
+            ? match.homeTeamId
+            : match.awayTeamId
+          : null,
+    },
+    include: { homeTeam: true, awayTeam: true },
+  });
+
+  res.json(updated);
+});
 export const resetMatchScore = asyncHandler(async (req: Request, res: Response) => {
   const match = await prisma.match.findUnique({ where: { id: req.params.id } });
   if (!match) throw new AppError("Partida nao encontrada.", 404);

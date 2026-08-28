@@ -6,6 +6,8 @@ import { asyncHandler, AppError } from "../middleware/errorHandler";
 const createSchema = z.object({
   name: z.string().min(2, "Nome do time deve ter ao menos 2 caracteres."),
   logoUrl: z.string().url().optional().or(z.literal("")),
+  eaClubId: z.string().regex(/^\d+$/, "O EaClubId deve conter apenas numeros."),
+  captainUserId: z.string().uuid("Selecione um usuario valido para o capitao."),
 });
 
 const updateSchema = createSchema.partial();
@@ -14,6 +16,7 @@ export const listTeams = asyncHandler(async (req: Request, res: Response) => {
   const teams = await prisma.team.findMany({
     where: { championshipId: req.params.championshipId },
     orderBy: { name: "asc" },
+    include: { captainUser: { select: { id: true, username: true } } },
   });
   res.json(teams);
 });
@@ -45,10 +48,15 @@ export const createTeam = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError("Ja existe um time com esse nome neste campeonato.");
   }
 
+  const captain = await prisma.user.findUnique({ where: { id: data.captainUserId } });
+  if (!captain) throw new AppError("Usuario do capitao nao encontrado.", 400);
+
   const team = await prisma.team.create({
     data: {
       name: data.name,
       logoUrl: data.logoUrl || null,
+      eaClubId: data.eaClubId,
+      captainUserId: data.captainUserId,
       championshipId,
     },
   });
@@ -69,9 +77,19 @@ export const updateTeam = asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
+  if (data.captainUserId) {
+    const captain = await prisma.user.findUnique({ where: { id: data.captainUserId } });
+    if (!captain) throw new AppError("Usuario do capitao nao encontrado.", 400);
+  }
+
   const updated = await prisma.team.update({
     where: { id: req.params.id },
-    data: { name: data.name, logoUrl: data.logoUrl || undefined },
+    data: {
+      name: data.name,
+      logoUrl: data.logoUrl || undefined,
+      eaClubId: data.eaClubId,
+      captainUserId: data.captainUserId,
+    },
   });
   res.json(updated);
 });
