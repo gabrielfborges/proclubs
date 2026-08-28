@@ -1,20 +1,22 @@
-import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { FormEvent, useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { beginDiscordRegistrationRequest } from "../../api/auth";
 import { getApiErrorMessage } from "../../api/client";
 import { ErrorBox } from "../../components/Loading";
 
 export function Register() {
-  const { register } = useAuth();
-  const navigate = useNavigate();
-
+  const location = useLocation();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [discordId, setDiscordId] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const message = new URLSearchParams(location.search).get("discord_error");
+    if (message) setError(message);
+  }, [location.search]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -27,11 +29,14 @@ export function Register() {
 
     setLoading(true);
     try {
-      await register(username, email, discordId, password);
-      navigate("/login", { replace: true, state: { registered: true } });
+      const { authorizationUrl } = await beginDiscordRegistrationRequest({
+        username,
+        email,
+        password,
+      });
+      window.location.assign(authorizationUrl);
     } catch (err) {
       setError(getApiErrorMessage(err));
-    } finally {
       setLoading(false);
     }
   }
@@ -41,7 +46,7 @@ export function Register() {
       <div className="card p-6">
         <h1 className="mb-1 text-xl font-bold">Criar conta</h1>
         <p className="mb-6 text-sm text-slate-400">
-          Cadastre-se para participar da comunidade Pro Clubs.
+          Cadastre-se e vincule sua conta do Discord para participar da comunidade Pro Clubs.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -68,17 +73,6 @@ export function Register() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="label">Discord ID</label>
-            <input
-              className="input"
-              value={discordId}
-              onChange={(e) => setDiscordId(e.target.value)}
-              placeholder="Ex.: 123456789012345678"
               required
             />
           </div>
@@ -112,7 +106,7 @@ export function Register() {
           {error && <ErrorBox message={error} />}
 
           <button type="submit" className="btn-primary w-full" disabled={loading}>
-            {loading ? "Criando conta..." : "Criar conta"}
+            {loading ? "Abrindo Discord..." : "Vincular Discord e criar conta"}
           </button>
         </form>
 

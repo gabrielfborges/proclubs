@@ -2,15 +2,19 @@ import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../prisma";
-import { signUserToken } from "../utils/jwt";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
+import { signUserToken } from "../utils/jwt";
+import {
+  beginDiscordRegistration as beginDiscordOAuth,
+  completeDiscordRegistration,
+} from "../services/discord-oauth.service";
 
 const loginSchema = z.object({
   identifier: z.string().trim().min(1, "Usuario ou email obrigatorio."),
   password: z.string().min(1, "Senha obrigatoria."),
 });
 
-const registerSchema = z.object({
+const registrationSchema = z.object({
   username: z
     .string()
     .trim()
@@ -18,7 +22,6 @@ const registerSchema = z.object({
     .max(30, "O usuario deve ter no maximo 30 caracteres.")
     .regex(/^[a-zA-Z0-9_.-]+$/, "O usuario possui caracteres invalidos."),
   email: z.string().trim().email("Informe um email valido."),
-  discordId: z.string().trim().min(2, "Informe seu Discord ID.").max(64, "Discord ID muito longo."),
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres."),
 });
 
@@ -57,25 +60,58 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   res.json({ token, user: safeUser });
 });
 
-export const register = asyncHandler(async (req: Request, res: Response) => {
-  const data = registerSchema.parse(req.body);
+export const beginDiscordRegistration = asyncHandler(async (req: Request, res: Response) => {
+  const data = registrationSchema.parse(req.body);
   const username = data.username.trim();
   const email = data.email.trim().toLowerCase();
-  const discordId = data.discordId.trim();
 
   const existing = await prisma.user.findFirst({
-    where: { OR: [{ username }, { email }, { discordId }] },
+    where: { OR: [{ username }, { email }] },
   });
   if (existing) {
-    throw new AppError("Usuario, email ou Discord ID ja cadastrado.", 409);
+    throw new AppError("Usuario ou email ja cadastrado.", 409);
   }
 
   const passwordHash = await bcrypt.hash(data.password, 10);
-  const user = await prisma.user.create({
-    data: { username, email, discordId, passwordHash, role: "USER" },
-  });
+  const authorizationUrl = beginDiscordOAuth({ username, email, passwordHash });
+  res.json({ authorizationUrl });
+});
 
-  res.status(201).json({ user: publicUser(user) });
+export const discordCallback = asyncHandler(async (req: Request, res: Response) => {
+  const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+  const { code, state, error } = req.query;
+
+  if (typeof error === "string" || typeof code !== "string" || typeof state !== "string") {
+    const message = typeof error === "string" ? "A autorizacao do Discord foi cancelada." : "Resposta invalida do Discord.";
+    return res.redirect(`${frontendUrl}/register?discord_error=${encodeURIComponent(message)}`);
+  }
+
+  try {
+    const { config, pending, discordUser } = await completeDiscordRegistration(state, code);
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [{ username: pending.username }, { email: pending.email }, { discordId: discordUser.id }],
+      },
+    });
+    if (existing) {
+      throw new AppError("Esse usuario, email ou Discord ja esta vinculado a uma conta.", 409);
+    }
+    const user = await prisma.user.create({
+      data: {
+        username: pending.username,
+        email: pending.email,
+        discordId: discordUser.id,
+        passwordHash: pending.passwordHash,
+        role: "USER",
+      },
+    });
+
+    const token = signUserToken(publicUser(user));
+    return res.redirect(`${config.frontendUrl}/auth/callback#auth_token=${encodeURIComponent(token)}`);
+  } catch (err) {
+    const message = err instanceof AppError ? err.message : "Nao foi possivel concluir o cadastro com Discord.";
+    return res.redirect(`${frontendUrl}/register?discord_error=${encodeURIComponent(message)}`);
+  }
 });
 
 export const listUsers = asyncHandler(async (_req: Request, res: Response) => {
@@ -84,6 +120,7 @@ export const listUsers = asyncHandler(async (_req: Request, res: Response) => {
   });
   res.json(users.map(publicUser));
 });
+
 export const me = asyncHandler(async (req: Request, res: Response) => {
   res.json({ user: req.user });
 });

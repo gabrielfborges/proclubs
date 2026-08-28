@@ -12,11 +12,18 @@ export async function loginRequest(identifier: string, password: string) {
 export interface RegisterData {
   username: string;
   email: string;
-  discordId: string;
   password: string;
 }
 
-export async function registerRequest(registerData: RegisterData) {
-  const { data } = await api.post<{ user: User }>("/auth/register", registerData);
+export async function beginDiscordRegistrationRequest(registerData: RegisterData) {
+  const { data } = await api.post<{ authorizationUrl: string }>(
+    "/auth/discord/begin",
+    registerData
+  );
+  return data;
+}
+
+export async function meRequest() {
+  const { data } = await api.get<{ user: User }>("/auth/me");
   return data;
 }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import { User } from "../types";
-import { loginRequest, registerRequest } from "../api/auth";
+import { loginRequest, meRequest } from "../api/auth";
 import { TOKEN_KEY, USER_KEY } from "../api/client";
 
 interface AuthContextValue {
@@ -8,7 +8,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isAdmin: boolean;
   login: (identifier: string, password: string) => Promise<User>;
-  register: (username: string, email: string, discordId: string, password: string) => Promise<void>;
+  completeLogin: (token: string) => Promise<User>;
   logout: () => void;
 }
 
@@ -24,23 +24,28 @@ function getStoredUser(): User | null {
   }
 }
 
+function storeSession(token: string, user: User) {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(getStoredUser);
 
   const login = useCallback(async (identifier: string, password: string) => {
     const data = await loginRequest(identifier, password);
-    localStorage.setItem(TOKEN_KEY, data.token);
-    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    storeSession(data.token, data.user);
     setUser(data.user);
     return data.user;
   }, []);
 
-  const register = useCallback(
-    async (username: string, email: string, discordId: string, password: string) => {
-      await registerRequest({ username, email, discordId, password });
-    },
-    []
-  );
+  const completeLogin = useCallback(async (token: string) => {
+    localStorage.setItem(TOKEN_KEY, token);
+    const data = await meRequest();
+    storeSession(token, data.user);
+    setUser(data.user);
+    return data.user;
+  }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
@@ -57,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isAdmin: user?.role === "ADMIN",
         login,
-        register,
+        completeLogin,
         logout,
       }}
     >

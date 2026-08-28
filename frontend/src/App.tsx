@@ -6,6 +6,7 @@ import { Dashboard } from "./pages/public/Dashboard";
 import { ChampionshipDetail } from "./pages/public/ChampionshipDetail";
 import { Login } from "./pages/admin/Login";
 import { Register } from "./pages/auth/Register";
+import { AuthCallback } from "./pages/auth/AuthCallback";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { ChampionshipManage } from "./pages/admin/ChampionshipManage";
 
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="/admin/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/registro" element={<Register />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
 
             <Route element={<ProtectedRoute />}>
               <Route path="/admin" element={<AdminDashboard />} />
