@@ -141,7 +141,10 @@ export async function generateKnockoutStage(championshipId: string) {
 
   return prisma.match.findMany({
     where: { championshipId, phase: "KNOCKOUT" },
-    include: { homeTeam: true, awayTeam: true },
+    include: {
+      homeTeam: { include: { captainUser: { select: { id: true, username: true } } } },
+      awayTeam: { include: { captainUser: { select: { id: true, username: true } } } },
+    },
     orderBy: { roundOrder: "asc" },
   });
 }

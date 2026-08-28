@@ -131,6 +131,9 @@ model Match {
   winnerTeam   Team?  @relation("WinnerTeam", fields: [winnerTeamId], references: [id])
 
   status    MatchStatus @default(SCHEDULED)
+  discordChannelId  String?
+  discordChannelUrl String?
+  startedAt         DateTime?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 }

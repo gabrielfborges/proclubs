@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../prisma";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { findLatestEaMatch } from "../services/ea-clubs.service";
+import { createMatchDiscordChannel } from "../services/discord.service";
 
 export const listMatches = asyncHandler(async (req: Request, res: Response) => {
   const { phase, groupId } = req.query;
@@ -12,12 +13,47 @@ export const listMatches = asyncHandler(async (req: Request, res: Response) => {
       phase: phase === "KNOCKOUT" ? "KNOCKOUT" : phase === "GROUP" ? "GROUP" : undefined,
       groupId: typeof groupId === "string" ? groupId : undefined,
     },
-    include: { homeTeam: true, awayTeam: true, group: true },
+    include: {
+      homeTeam: { include: { captainUser: { select: { id: true, username: true } } } },
+      awayTeam: { include: { captainUser: { select: { id: true, username: true } } } },
+      group: true,
+    },
     orderBy: [{ phase: "asc" }, { roundOrder: "asc" }],
   });
   res.json(matches);
 });
 
+export const startMatch = asyncHandler(async (req: Request, res: Response) => {
+  const match = await prisma.match.findUnique({
+    where: { id: req.params.id },
+    include: {
+      homeTeam: { include: { captainUser: true } },
+      awayTeam: { include: { captainUser: true } },
+    },
+  });
+  if (!match) throw new AppError("Partida nao encontrada.", 404);
+
+  if (match.discordChannelId && match.discordChannelUrl) {
+    return res.json(match);
+  }
+
+  const channel = await createMatchDiscordChannel(match);
+  const updated = await prisma.match.update({
+    where: { id: match.id },
+    data: {
+      discordChannelId: channel.id,
+      discordChannelUrl: channel.url,
+      startedAt: new Date(),
+    },
+    include: {
+      homeTeam: { include: { captainUser: { select: { id: true, username: true } } } },
+      awayTeam: { include: { captainUser: { select: { id: true, username: true } } } },
+      group: true,
+    },
+  });
+
+  res.json(updated);
+});
 const scoreSchema = z.object({
   homeScore: z.number().int().min(0),
   awayScore: z.number().int().min(0),

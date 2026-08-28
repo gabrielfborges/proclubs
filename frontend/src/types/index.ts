@@ -86,6 +86,9 @@ export interface Match {
   winnerTeamId: string | null;
   winnerTeam?: Team | null;
   status: MatchStatus;
+  discordChannelId: string | null;
+  discordChannelUrl: string | null;
+  startedAt: string | null;
 }
 
 export interface User {

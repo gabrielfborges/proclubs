@@ -13,6 +13,7 @@ import {
   updateMatchScoreRequest,
   fetchMatchScoreFromEaRequest,
   resetMatchScoreRequest,
+  startMatchRequest,
   fetchKnockoutBracket,
   fetchKnockoutReadiness,
   generateKnockoutRequest,
@@ -156,6 +157,7 @@ export function ChampionshipManage() {
           }
           onFetchScore={(matchId) => runAction(() => fetchMatchScoreFromEaRequest(matchId))}
           onResetScore={(matchId) => runAction(() => resetMatchScoreRequest(matchId))}
+          onStartChat={(matchId) => runAction(() => startMatchRequest(matchId))}
         />
       )}
 
@@ -174,6 +176,7 @@ export function ChampionshipManage() {
           }
           onFetchScore={(matchId) => runAction(() => fetchMatchScoreFromEaRequest(matchId))}
           onResetScore={(matchId) => runAction(() => resetMatchScoreRequest(matchId))}
+          onStartChat={(matchId) => runAction(() => startMatchRequest(matchId))}
         />
       )}
     </div>
@@ -307,6 +310,7 @@ function GroupsPanel({
   onSaveScore,
   onResetScore,
   onFetchScore,
+  onStartChat,
 }: {
   championship: Championship;
   groups: Group[];
@@ -317,11 +321,55 @@ function GroupsPanel({
   onSaveScore: (matchId: string, home: number, away: number) => void;
   onResetScore: (matchId: string) => void;
   onFetchScore: (matchId: string) => void;
+  onStartChat: (matchId: string) => void;
 }) {
+  const [groupFilter, setGroupFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "PLAYED">("ALL");
   const hasPlayedMatches = matches.some((m) => m.status === "PLAYED");
+  const playedCount = matches.filter((m) => m.status === "PLAYED").length;
+  const pendingCount = matches.length - playedCount;
+  const filteredMatches = matches.filter((match) => {
+    const matchesGroup = groupFilter === "ALL" || match.groupId === groupFilter;
+    const matchesStatus =
+      statusFilter === "ALL" ||
+      (statusFilter === "PLAYED" && match.status === "PLAYED") ||
+      (statusFilter === "PENDING" && match.status !== "PLAYED");
+    return matchesGroup && matchesStatus;
+  });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <div className="card p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-accent-400">Fase de grupos</p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-100">Lancar resultados</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Preencha o placar final de cada partida. Jogos pendentes aparecem com os campos vazios.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <ProgressStat label="Total" value={matches.length} />
+            <ProgressStat label="Lancados" value={playedCount} accent />
+            <ProgressStat label="Pendentes" value={pendingCount} warning />
+          </div>
+        </div>
+        {matches.length > 0 && (
+          <div className="mt-4">
+            <div className="mb-1 flex items-center justify-between text-xs text-slate-400">
+              <span>Progresso dos resultados</span>
+              <span>{playedCount} de {matches.length}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-base-800">
+              <div
+                className="h-full rounded-full bg-accent-500 transition-all"
+                style={{ width: matches.length ? ((playedCount / matches.length) * 100) + "%" : "0%" }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="card flex flex-wrap items-center gap-3 p-4">
         <button
           className="btn-secondary"
@@ -335,44 +383,111 @@ function GroupsPanel({
           disabled={disabled || groups.length === 0 || hasPlayedMatches}
           onClick={onGenerateMatches}
         >
-          Gerar partidas dos grupos
+          Gerar partidas
         </button>
-        <p className="text-xs text-slate-500">
-          Sorteia {championship.numberOfGroups} grupo(s) com os times cadastrados e gera as partidas
-          (turno unico). So e possivel gerar novamente enquanto nenhum resultado tiver sido lancado.
+        <p className="min-w-[220px] flex-1 text-xs text-slate-500">
+          Gere ou refaca a tabela enquanto nenhum resultado tiver sido lancado.
         </p>
       </div>
 
       {groups.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {groups.map((group) => (
-            <div key={group.id} className="card p-4">
-              <h4 className="mb-2 text-sm font-semibold text-slate-300">Grupo {group.name}</h4>
-              <ul className="space-y-1 text-sm text-slate-400">
-                {group.teams.map((gt) => (
-                  <li key={gt.id}>{gt.team.name}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <div>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-slate-300">Grupos</h3>
+            <span className="text-xs text-slate-500">Clique em um grupo para filtrar</span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {groups.map((group) => {
+              const groupMatches = matches.filter((match) => match.groupId === group.id);
+              const groupPlayed = groupMatches.filter((match) => match.status === "PLAYED").length;
+              const selected = groupFilter === group.id;
+              return (
+                <button
+                  type="button"
+                  key={group.id}
+                  onClick={() => setGroupFilter(selected ? "ALL" : group.id)}
+                  className={
+                    "card p-4 text-left transition-colors hover:border-accent-500 " +
+                    (selected ? "border-accent-500 ring-1 ring-accent-500/40" : "")
+                  }
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-semibold text-slate-200">Grupo {group.name}</h4>
+                    <span className="text-xs text-accent-400">{groupPlayed}/{groupMatches.length}</span>
+                  </div>
+                  <ul className="mt-3 space-y-1 text-xs text-slate-400">
+                    {group.teams.map((gt) => (
+                      <li key={gt.id} className="truncate">{gt.team.name}</li>
+                    ))}
+                  </ul>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {matches.length > 0 && (
         <div>
-          <h3 className="mb-3 text-sm font-semibold text-slate-300">Partidas da fase de grupos</h3>
-          <div className="space-y-2">
-            {matches.map((match) => (
-              <MatchScoreRow
-                key={match.id}
-                match={match}
-                disabled={disabled}
-                onSave={(home, away) => onSaveScore(match.id, home, away)}
-                onReset={() => onResetScore(match.id)}
-                onFetchScore={() => onFetchScore(match.id)}
-              />
-            ))}
+          <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-300">Partidas</h3>
+              <p className="text-xs text-slate-500">
+                Exibindo {filteredMatches.length} de {matches.length} partida(s)
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <select
+                className="input w-auto min-w-[145px]"
+                value={groupFilter}
+                onChange={(e) => setGroupFilter(e.target.value)}
+                aria-label="Filtrar por grupo"
+              >
+                <option value="ALL">Todos os grupos</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>Grupo {group.name}</option>
+                ))}
+              </select>
+              <select
+                className="input w-auto min-w-[135px]"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as "ALL" | "PENDING" | "PLAYED")}
+                aria-label="Filtrar por status"
+              >
+                <option value="ALL">Todos os status</option>
+                <option value="PENDING">Pendentes</option>
+                <option value="PLAYED">Lancados</option>
+              </select>
+            </div>
           </div>
+
+          {filteredMatches.length > 0 ? (
+            <div className="space-y-3">
+              {filteredMatches.map((match, index) => (
+                <MatchScoreRow
+                  key={match.id}
+                  match={match}
+                  matchNumber={index + 1}
+                  disabled={disabled}
+                  onSave={(home, away) => onSaveScore(match.id, home, away)}
+                  onReset={() => onResetScore(match.id)}
+                  onFetchScore={() => onFetchScore(match.id)}
+                    onStartChat={() => onStartChat(match.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="card px-4 py-8 text-center text-sm text-slate-500">
+              Nenhuma partida corresponde aos filtros selecionados.
+            </div>
+          )}
+        </div>
+      )}
+
+      {matches.length === 0 && (
+        <div className="card px-4 py-10 text-center">
+          <p className="font-medium text-slate-300">As partidas ainda nao foram geradas.</p>
+          <p className="mt-1 text-sm text-slate-500">Gere os grupos e depois crie a tabela de partidas para lancar os resultados.</p>
         </div>
       )}
     </div>
@@ -391,6 +506,7 @@ function KnockoutPanel({
   onSaveScore,
   onResetScore,
   onFetchScore,
+  onStartChat,
 }: {
   championship: Championship;
   matches: Match[];
@@ -407,22 +523,48 @@ function KnockoutPanel({
   ) => void;
   onResetScore: (matchId: string) => void;
   onFetchScore: (matchId: string) => void;
+  onStartChat: (matchId: string) => void;
 }) {
+  const [roundFilter, setRoundFilter] = useState("CURRENT");
   const lastRound = matches.length > 0 ? matches[matches.length - 1].round : null;
-  const currentRoundMatches = matches.filter((m) => m.round === lastRound);
+  const roundNames = Array.from(
+    new Set(matches.map((match) => match.round).filter((round): round is string => Boolean(round)))
+  );
+  const selectedRound = roundFilter === "ALL" ? null : roundFilter === "CURRENT" ? lastRound : roundFilter;
+  const visibleMatches = matches.filter((match) => !selectedRound || match.round === selectedRound);
+  const currentRoundMatches = matches.filter((match) => match.round === lastRound);
   const currentRoundComplete =
     currentRoundMatches.length > 0 && currentRoundMatches.every((m) => m.status === "PLAYED");
+  const playedCount = matches.filter((match) => match.status === "PLAYED").length;
+  const pendingCount = matches.length - playedCount;
   const isFinished = championship.stage === "FINISHED";
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <div className="card p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-accent-400">Mata-mata</p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-100">Resultados por rodada</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Lance os jogos da rodada atual. A proxima fase sera liberada quando todos estiverem concluidos.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <ProgressStat label="Total" value={matches.length} />
+            <ProgressStat label="Lancados" value={playedCount} accent />
+            <ProgressStat label="Pendentes" value={pendingCount} warning />
+          </div>
+        </div>
+      </div>
+
       <div className="card flex flex-wrap items-center gap-3 p-4">
         {matches.length === 0 ? (
           <>
             <button className="btn-secondary" disabled={disabled || !ready} onClick={onGenerate}>
               Gerar mata-mata
             </button>
-            <p className="text-xs text-slate-500">
+            <p className="min-w-[240px] flex-1 text-xs text-slate-500">
               {ready
                 ? "Todos os jogos da fase de grupos possuem resultado. Voce ja pode gerar o mata-mata."
                 : "Ainda ha partidas da fase de grupos sem resultado."}
@@ -438,7 +580,7 @@ function KnockoutPanel({
               >
                 Avancar para a proxima fase
               </button>
-              <p className="text-xs text-slate-500">
+              <p className="min-w-[240px] flex-1 text-xs text-slate-500">
                 {currentRoundComplete
                   ? "Todos os jogos da rodada atual foram concluidos."
                   : "Finalize todos os jogos da rodada atual para avancar."}
@@ -448,7 +590,7 @@ function KnockoutPanel({
         )}
         {isFinished && championship.championTeam && (
           <p className="text-sm font-semibold text-accent-400">
-            🏆 Campeao: {championship.championTeam.name}
+            Campeao: {championship.championTeam.name}
           </p>
         )}
       </div>
@@ -457,26 +599,78 @@ function KnockoutPanel({
 
       {matches.length > 0 && (
         <div>
-          <h3 className="mb-3 text-sm font-semibold text-slate-300">Lancar resultados</h3>
-          <div className="space-y-2">
-            {matches
-              .filter((m) => m.homeTeamId && m.awayTeamId)
-              .map((match) => (
-                <MatchScoreRow
-                  key={match.id}
-                  match={match}
-                  disabled={disabled}
-                  allowPenalty
-                  onSave={(home, away, penHome, penAway) =>
-                    onSaveScore(match.id, home, away, penHome, penAway)
-                  }
-                  onReset={() => onResetScore(match.id)}
-                  onFetchScore={() => onFetchScore(match.id)}
-                />
+          <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-300">Lancar resultados</h3>
+              <p className="text-xs text-slate-500">
+                {visibleMatches.filter((match) => match.status === "PLAYED").length} de {visibleMatches.length} lancada(s) nesta visualizacao
+              </p>
+            </div>
+            <select
+              className="input w-auto min-w-[190px]"
+              value={roundFilter}
+              onChange={(e) => setRoundFilter(e.target.value)}
+              aria-label="Selecionar rodada"
+            >
+              <option value="CURRENT">Rodada atual ({lastRound || "nenhuma"})</option>
+              <option value="ALL">Todas as rodadas</option>
+              {roundNames.map((round) => (
+                <option key={round} value={round}>{round}</option>
               ))}
+            </select>
           </div>
+
+          {visibleMatches.length > 0 ? (
+            <div className="space-y-3">
+              {visibleMatches
+                .filter((match) => match.homeTeamId && match.awayTeamId)
+                .map((match, index) => (
+                  <MatchScoreRow
+                    key={match.id}
+                    match={match}
+                    matchNumber={index + 1}
+                    disabled={disabled}
+                    allowPenalty
+                    onSave={(home, away, penHome, penAway) =>
+                      onSaveScore(match.id, home, away, penHome, penAway)
+                    }
+                    onReset={() => onResetScore(match.id)}
+                    onFetchScore={() => onFetchScore(match.id)}
+                    onStartChat={() => onStartChat(match.id)}
+                  />
+                ))}
+            </div>
+          ) : (
+            <div className="card px-4 py-8 text-center text-sm text-slate-500">
+              Nenhuma partida disponivel nesta rodada.
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function ProgressStat({
+  label,
+  value,
+  accent,
+  warning,
+}: {
+  label: string;
+  value: number;
+  accent?: boolean;
+  warning?: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-base-700 bg-base-800/70 px-3 py-2 text-center">
+      <span className="block text-[10px] uppercase tracking-wide text-slate-500">{label}</span>
+      <span className={
+        "mt-0.5 block text-lg font-bold " +
+        (accent ? "text-accent-400" : warning ? "text-amber-400" : "text-slate-200")
+      }>
+        {value}
+      </span>
     </div>
   );
 }
@@ -485,106 +679,203 @@ function KnockoutPanel({
 
 function MatchScoreRow({
   match,
+  matchNumber,
   disabled,
   allowPenalty,
   onSave,
   onReset,
   onFetchScore,
+  onStartChat,
 }: {
   match: Match;
+  matchNumber: number;
   disabled: boolean;
   allowPenalty?: boolean;
   onSave: (home: number, away: number, penHome?: number, penAway?: number) => void;
   onReset: () => void;
   onFetchScore?: () => void;
+  onStartChat?: () => void;
 }) {
-  const [home, setHome] = useState(match.homeScore ?? 0);
-  const [away, setAway] = useState(match.awayScore ?? 0);
-  const [penHome, setPenHome] = useState(match.homePenalty ?? 0);
-  const [penAway, setPenAway] = useState(match.awayPenalty ?? 0);
+  const [home, setHome] = useState(match.homeScore == null ? "" : String(match.homeScore));
+  const [away, setAway] = useState(match.awayScore == null ? "" : String(match.awayScore));
+  const [penHome, setPenHome] = useState(match.homePenalty == null ? "" : String(match.homePenalty));
+  const [penAway, setPenAway] = useState(match.awayPenalty == null ? "" : String(match.awayPenalty));
+  const [validationError, setValidationError] = useState("");
 
-  const needsPenalty = allowPenalty && home === away;
+  useEffect(() => {
+    setHome(match.homeScore == null ? "" : String(match.homeScore));
+    setAway(match.awayScore == null ? "" : String(match.awayScore));
+    setPenHome(match.homePenalty == null ? "" : String(match.homePenalty));
+    setPenAway(match.awayPenalty == null ? "" : String(match.awayPenalty));
+  }, [match.id, match.homeScore, match.awayScore, match.homePenalty, match.awayPenalty]);
 
-  function handleSave() {
-    onSave(home, away, needsPenalty ? penHome : undefined, needsPenalty ? penAway : undefined);
+  const homeScore = home === "" ? null : Number(home);
+  const awayScore = away === "" ? null : Number(away);
+  const needsPenalty =
+    allowPenalty &&
+    homeScore !== null &&
+    awayScore !== null &&
+    homeScore === awayScore;
+
+  function handleSave(e: FormEvent) {
+    e.preventDefault();
+    if (homeScore === null || awayScore === null) {
+      setValidationError("Informe os dois placares antes de salvar.");
+      return;
+    }
+    if (needsPenalty && (penHome === "" || penAway === "")) {
+      setValidationError("Informe os dois placares dos penaltis.");
+      return;
+    }
+    setValidationError("");
+    onSave(
+      homeScore,
+      awayScore,
+      needsPenalty && penHome !== "" ? Number(penHome) : undefined,
+      needsPenalty && penAway !== "" ? Number(penAway) : undefined
+    );
+  }
+
+  function handleScoreChange(value: string, setter: (value: string) => void) {
+    setter(value.replace(/[^0-9]/g, ""));
+    setValidationError("");
   }
 
   return (
-    <div className="card flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-xs text-slate-400">
-        {match.round && <span>{match.round}</span>}
-        {match.group && <span className="ml-1 text-slate-600">• Grupo {match.group.name}</span>}
-      </div>
-
-      <div className="flex flex-1 flex-wrap items-center justify-center gap-2">
-        <span className="w-32 truncate text-right text-sm font-medium sm:w-40">
-          {match.homeTeam?.name ?? "A definir"}
-        </span>
-        <input
-          type="number"
-          min={0}
-          className="input w-16 text-center"
-          value={home}
-          onChange={(e) => setHome(Number(e.target.value))}
-        />
-        <span className="text-slate-500">x</span>
-        <input
-          type="number"
-          min={0}
-          className="input w-16 text-center"
-          value={away}
-          onChange={(e) => setAway(Number(e.target.value))}
-        />
-        <span className="w-32 truncate text-left text-sm font-medium sm:w-40">
-          {match.awayTeam?.name ?? "A definir"}
-        </span>
-      </div>
-
-      {needsPenalty && (
-        <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
-          <span>Penaltis:</span>
-          <input
-            type="number"
-            min={0}
-            className="input w-14 text-center"
-            value={penHome}
-            onChange={(e) => setPenHome(Number(e.target.value))}
-          />
-          <span>x</span>
-          <input
-            type="number"
-            min={0}
-            className="input w-14 text-center"
-            value={penAway}
-            onChange={(e) => setPenAway(Number(e.target.value))}
-          />
+    <form onSubmit={handleSave} className="card p-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+        <div className="flex min-w-[170px] items-center justify-between gap-3 xl:w-[210px]">
+          <div>
+            <p className="text-xs font-semibold text-slate-300">
+              Jogo {matchNumber}{match.round ? " · " + match.round : ""}
+            </p>
+            {match.group && <p className="mt-1 text-xs text-slate-500">Grupo {match.group.name}</p>}
+            <p className="mt-1 max-w-[210px] truncate text-[11px] text-slate-400" title={`${match.homeTeam?.name ?? "A definir"} x ${match.awayTeam?.name ?? "A definir"}`}>
+              {match.homeTeam?.name ?? "A definir"} x {match.awayTeam?.name ?? "A definir"}
+            </p>
+          </div>
+          <span
+            className={
+              "rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide " +
+              (match.status === "PLAYED"
+                ? "bg-accent-500/15 text-accent-400"
+                : "bg-amber-500/15 text-amber-400")
+            }
+          >
+            {match.status === "PLAYED" ? "Lancado" : "Pendente"}
+          </span>
         </div>
-      )}
 
-      <div className="flex justify-end gap-2">
-        {onFetchScore && match.homeTeam?.eaClubId && match.awayTeam?.eaClubId && (
-          <button
-            className="btn-secondary !py-1.5 !px-3 text-xs"
-            disabled={disabled}
-            onClick={onFetchScore}
-            title="Busca o resultado mais recente entre os dois EaClubIds na API da EA"
-          >
-            Buscar na EA
-          </button>
+        <div className="flex flex-1 items-center justify-center gap-2 sm:gap-3">
+          <span className="min-w-0 flex-1 truncate text-right text-sm font-medium text-slate-200">
+            {match.homeTeam?.name ?? "A definir"}
+          </span>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            aria-label={"Gols de " + (match.homeTeam?.name ?? "time da casa")}
+            className="input h-12 w-16 text-center text-lg font-bold"
+            placeholder="0"
+            value={home}
+            onChange={(e) => handleScoreChange(e.target.value, setHome)}
+          />
+          <span className="text-sm font-semibold text-slate-500">x</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            aria-label={"Gols de " + (match.awayTeam?.name ?? "time visitante")}
+            className="input h-12 w-16 text-center text-lg font-bold"
+            placeholder="0"
+            value={away}
+            onChange={(e) => handleScoreChange(e.target.value, setAway)}
+          />
+          <span className="min-w-0 flex-1 truncate text-left text-sm font-medium text-slate-200">
+            {match.awayTeam?.name ?? "A definir"}
+          </span>
+        </div>
+
+        {needsPenalty && (
+          <div className="flex items-center justify-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-slate-400">
+            <span className="whitespace-nowrap text-amber-300">Penaltis</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              aria-label="Penaltis do time da casa"
+              className="input h-9 w-14 text-center"
+              placeholder="0"
+              value={penHome}
+              onChange={(e) => handleScoreChange(e.target.value, setPenHome)}
+            />
+            <span>x</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              aria-label="Penaltis do time visitante"
+              className="input h-9 w-14 text-center"
+              placeholder="0"
+              value={penAway}
+              onChange={(e) => handleScoreChange(e.target.value, setPenAway)}
+            />
+          </div>
         )}
-        <button className="btn-primary !py-1.5 !px-3 text-xs" disabled={disabled} onClick={handleSave}>
-          Salvar
-        </button>
-        {match.status === "PLAYED" && (
-          <button
-            className="btn-secondary !py-1.5 !px-3 text-xs"
-            disabled={disabled}
-            onClick={onReset}
-          >
-            Limpar
+
+        <div className="flex flex-wrap items-center justify-end gap-2 xl:min-w-[315px]">
+          {match.discordChannelUrl ? (
+            <a
+              href={match.discordChannelUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-secondary !py-2 !px-3 text-xs"
+            >
+              Abrir chat no Discord
+            </a>
+          ) : onStartChat && match.homeTeam?.captainUser && match.awayTeam?.captainUser ? (
+            <button
+              type="button"
+              className="btn-primary !py-2 !px-3 text-xs"
+              disabled={disabled}
+              onClick={onStartChat}
+              title="Cria um canal privado no Discord para os dois capitães"
+            >
+              Começar partida
+            </button>
+          ) : null}
+          {onFetchScore && match.homeTeam?.eaClubId && match.awayTeam?.eaClubId && (
+            <button
+              type="button"
+              className="btn-secondary !py-2 !px-3 text-xs"
+              disabled={disabled}
+              onClick={onFetchScore}
+              title="Busca automaticamente o resultado mais recente entre os dois EaClubIds"
+            >
+              Buscar na EA
+            </button>
+          )}
+          <button type="submit" className="btn-primary !py-2 !px-4 text-xs" disabled={disabled}>
+            Salvar resultado
           </button>
-        )}
+          {match.status === "PLAYED" && (
+            <button
+              type="button"
+              className="btn-secondary !py-2 !px-3 text-xs"
+              disabled={disabled}
+              onClick={onReset}
+            >
+              Limpar
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+
+      {validationError && (
+        <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {validationError}
+        </p>
+      )}
+    </form>
   );
 }

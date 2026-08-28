@@ -10,7 +10,11 @@ import {
 export const getKnockoutBracket = asyncHandler(async (req: Request, res: Response) => {
   const matches = await prisma.match.findMany({
     where: { championshipId: req.params.championshipId, phase: "KNOCKOUT" },
-    include: { homeTeam: true, awayTeam: true, winnerTeam: true },
+    include: {
+      homeTeam: { include: { captainUser: { select: { id: true, username: true } } } },
+      awayTeam: { include: { captainUser: { select: { id: true, username: true } } } },
+      winnerTeam: true,
+    },
     orderBy: { roundOrder: "asc" },
   });
   res.json(matches);

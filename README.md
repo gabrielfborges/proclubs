@@ -138,3 +138,8 @@ Em produção, lembre-se de:
 - Definir um `JWT_SECRET` forte e uma senha de administrador segura.
 - Ajustar `FRONTEND_URL` (backend) e `VITE_API_URL` (frontend) para os domínios reais.
 - Usar HTTPS e uma instância gerenciada de PostgreSQL (ou o próprio `docker-compose.yml` adaptado).
+
+
+### Chats das partidas no Discord
+
+Na tela de gerenciamento, o botao **Comecar partida** cria um canal de texto privado no servidor Discord configurado, liberado para os dois capitaes e para os administradores informados. Cadastre no campo Discord ID o ID numerico de cada usuario do Discord. O bot precisa estar no servidor e ter a permissao **Gerenciar canais**.

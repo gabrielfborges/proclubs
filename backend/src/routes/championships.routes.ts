@@ -19,6 +19,7 @@ import {
   updateMatchScore,
   resetMatchScore,
   fetchMatchScoreFromEa,
+  startMatch,
 } from "../controllers/match.controller";
 import {
   getKnockoutBracket,
@@ -52,6 +53,7 @@ router.get("/:championshipId/standings", getStandings);
 router.get("/:championshipId/matches", listMatches);
 router.patch("/matches/:id/score", requireAdmin, updateMatchScore);
 router.post("/matches/:id/score/ea", requireAdmin, fetchMatchScoreFromEa);
+router.post("/matches/:id/start", requireAdmin, startMatch);
 router.post("/matches/:id/reset", requireAdmin, resetMatchScore);
 
 // --- Mata-mata ---

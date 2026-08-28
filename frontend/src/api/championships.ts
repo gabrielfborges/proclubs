@@ -98,6 +98,10 @@ export async function resetMatchScoreRequest(matchId: string) {
   return data;
 }
 
+export async function startMatchRequest(matchId: string) {
+  const { data } = await api.post<Match>(`/championships/matches/${matchId}/start`);
+  return data;
+}
 export async function fetchKnockoutBracket(championshipId: string) {
   const { data } = await api.get<Match[]>(`/championships/${championshipId}/knockout`);
   return data;
