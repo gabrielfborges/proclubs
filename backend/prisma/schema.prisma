@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ChampionshipStage {
+  REGISTRATION   // aberto para cadastro de times
+  GROUP_STAGE    // fase de grupos em andamento
+  KNOCKOUT_STAGE // mata-mata em andamento
+  FINISHED       // finalizado, campeao definido
+}
+
+enum MatchPhase {
+  GROUP
+  KNOCKOUT
+}
+
+enum MatchStatus {
+  SCHEDULED
+  PLAYED
+}
+
+model Admin {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model Championship {
+  id                    String            @id @default(uuid())
+  name                  String
+  description           String?
+  maxTeams              Int
+  numberOfGroups        Int               @default(1)
+  teamsQualifyingPerGroup Int             @default(2)
+  stage                 ChampionshipStage @default(REGISTRATION)
+  championTeamId        String?
+  championTeam          Team?             @relation("ChampionTeam", fields: [championTeamId], references: [id])
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  teams  Team[]  @relation("ChampionshipTeams")
+  groups Group[]
+  matches Match[]
+}
+
+model Team {
+  id             String       @id @default(uuid())
+  name           String
+  logoUrl        String?
+  championshipId String
+  championship   Championship @relation("ChampionshipTeams", fields: [championshipId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  groupEntries   GroupTeam[]
+  homeMatches    Match[]      @relation("HomeTeam")
+  awayMatches    Match[]      @relation("AwayTeam")
+  wonMatches     Match[]      @relation("WinnerTeam")
+  championOf     Championship[] @relation("ChampionTeam")
+
+  @@unique([championshipId, name])
+}
+
+model Group {
+  id             String       @id @default(uuid())
+  name           String
+  championshipId String
+  championship   Championship @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+
+  teams   GroupTeam[]
+  matches Match[]
+
+  @@unique([championshipId, name])
+}
+
+model GroupTeam {
+  id      String @id @default(uuid())
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  teamId  String
+  team    Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, teamId])
+}
+
+model Match {
+  id             String       @id @default(uuid())
+  championshipId String
+  championship   Championship @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+
+  phase   MatchPhase
+  groupId String?
+  group   Group?     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  // usado apenas na fase de mata-mata, ex: "Oitavas", "Quartas", "Semifinal", "Final"
+  round      String?
+  // ordem do jogo dentro da rodada/mata-mata, usada para montar o chaveamento
+  roundOrder Int?
+
+  homeTeamId String?
+  homeTeam   Team?   @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId String?
+  awayTeam   Team?   @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  homeScore Int?
+  awayScore Int?
+
+  // desempate por penaltis, usado apenas no mata-mata em caso de empate
+  homePenalty Int?
+  awayPenalty Int?
+
+  winnerTeamId String?
+  winnerTeam   Team?  @relation("WinnerTeam", fields: [winnerTeamId], references: [id])
+
+  status    MatchStatus @default(SCHEDULED)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
