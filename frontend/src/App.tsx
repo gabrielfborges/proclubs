@@ -7,6 +7,8 @@ import { ChampionshipDetail } from "./pages/public/ChampionshipDetail";
 import { Login } from "./pages/admin/Login";
 import { Register } from "./pages/auth/Register";
 import { AuthCallback } from "./pages/auth/AuthCallback";
+import { CreateTeam } from "./pages/auth/CreateTeam";
+
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { ChampionshipManage } from "./pages/admin/ChampionshipManage";
 
@@ -26,6 +28,11 @@ export default function App() {
             <Route path="/auth/callback" element={<AuthCallback />} />
 
             <Route element={<ProtectedRoute />}>
+              <Route path="/times/criar" element={<CreateTeam />} />
+
+            </Route>
+
+            <Route element={<ProtectedRoute adminOnly />}>
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/campeonatos/:id" element={<ChampionshipManage />} />
             </Route>

@@ -1,18 +1,22 @@
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   fetchChampionship,
   fetchStandings,
   fetchMatches,
   fetchKnockoutBracket,
+  fetchMyApplicationsRequest,
+  fetchMyTeamsRequest,
+  requestChampionshipApplicationRequest,
 } from "../../api/championships";
-import { Championship, GroupStandings, Match } from "../../types";
+import { Championship, ChampionshipApplication, GroupStandings, Match, UserTeam } from "../../types";
 import { Loading, ErrorBox } from "../../components/Loading";
 import { StatusBadge } from "../../components/StatusBadge";
 import { StandingsTable } from "../../components/StandingsTable";
 import { MatchList } from "../../components/MatchList";
 import { BracketView } from "../../components/BracketView";
 import { getApiErrorMessage } from "../../api/client";
+import { useAuth } from "../../context/AuthContext";
 
 type TabKey = "standings" | "matches" | "knockout" | "teams";
 
@@ -25,6 +29,15 @@ export function ChampionshipDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<TabKey>("standings");
+  const { isAuthenticated } = useAuth();
+  const [showRegistration, setShowRegistration] = useState(false);
+  const [myTeams, setMyTeams] = useState<UserTeam[]>([]);
+  const [myApplications, setMyApplications] = useState<ChampionshipApplication[]>([]);
+  const [registrationTeamId, setRegistrationTeamId] = useState("");
+  const [registrationLoading, setRegistrationLoading] = useState(false);
+  const [registrationSubmitting, setRegistrationSubmitting] = useState(false);
+  const [registrationError, setRegistrationError] = useState("");
+  const [registrationSuccess, setRegistrationSuccess] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -44,6 +57,39 @@ export function ChampionshipDetail() {
       .catch((err) => setError(getApiErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!showRegistration || !isAuthenticated || championship?.stage !== "REGISTRATION") return;
+
+    setRegistrationLoading(true);
+    setRegistrationError("");
+    Promise.all([fetchMyTeamsRequest(), fetchMyApplicationsRequest()])
+      .then(([teams, applications]) => {
+        setMyTeams(teams);
+        setMyApplications(applications);
+        setRegistrationTeamId(teams.find((team) => !team.championshipId)?.id || "");
+      })
+      .catch((err) => setRegistrationError(getApiErrorMessage(err)))
+      .finally(() => setRegistrationLoading(false));
+  }, [showRegistration, isAuthenticated, championship?.stage]);
+
+  async function handleRegistrationSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!id || !registrationTeamId) return;
+
+    setRegistrationSubmitting(true);
+    setRegistrationError("");
+    setRegistrationSuccess("");
+    try {
+      const application = await requestChampionshipApplicationRequest(id, registrationTeamId);
+      setMyApplications((current) => [application, ...current.filter((item) => item.id !== application.id)]);
+      setRegistrationSuccess("Solicitação enviada. Aguarde a análise do administrador.");
+    } catch (err) {
+      setRegistrationError(getApiErrorMessage(err));
+    } finally {
+      setRegistrationSubmitting(false);
+    }
+  }
 
   if (loading) return <Loading label="Carregando campeonato..." />;
   if (error) return <div className="mx-auto max-w-6xl px-4 py-8"><ErrorBox message={error} /></div>;
@@ -79,6 +125,57 @@ export function ChampionshipDetail() {
           </div>
         )}
       </div>
+
+      {championship.stage === "REGISTRATION" && (
+        <section className="card mb-6 border-accent-500/30 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-accent-400">Vagas abertas</p>
+              <h2 className="mt-1 font-semibold">Quer participar deste campeonato?</h2>
+              <p className="mt-1 text-sm text-slate-400">Solicite sua inscrição usando um time criado por você.</p>
+            </div>
+            {isAuthenticated ? (
+              <button type="button" className="btn-primary" onClick={() => { setShowRegistration((current) => !current); setRegistrationError(""); setRegistrationSuccess(""); }}>
+                {showRegistration ? "Fechar" : "Solicitar inscrição"}
+              </button>
+            ) : (
+              <Link to="/login" state={{ from: `/campeonatos/${id}` }} className="btn-primary">Entrar para solicitar</Link>
+            )}
+          </div>
+
+          {showRegistration && isAuthenticated && (
+            <div className="mt-4 border-t border-base-700 pt-4">
+              {registrationLoading ? (
+                <p className="text-sm text-slate-400">Carregando seus times...</p>
+              ) : (
+                <form onSubmit={handleRegistrationSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="flex-1">
+                    <label className="label">Selecione seu time</label>
+                    <select className="input" value={registrationTeamId} onChange={(event) => setRegistrationTeamId(event.target.value)} disabled={myTeams.filter((team) => !team.championshipId).length === 0}>
+                      <option value="">Selecione um time independente</option>
+                      {myTeams.filter((team) => !team.championshipId).map((team) => (
+                        <option key={team.id} value={team.id}>{team.name} · EA {team.eaClubId || "sem ID"}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button type="submit" className="btn-primary sm:shrink-0" disabled={registrationSubmitting || !registrationTeamId || myApplications.some((application) => application.teamId === registrationTeamId && application.championshipId === id && application.status === "PENDING")}>
+                    {registrationSubmitting ? "Enviando..." : "Enviar solicitação"}
+                  </button>
+                </form>
+              )}
+
+              {!registrationLoading && myTeams.filter((team) => !team.championshipId).length === 0 && (
+                <p className="mt-3 text-sm text-slate-400">Você ainda não possui um time independente. <Link to="/times/criar" className="text-accent-400 hover:text-accent-300">Crie seu time primeiro →</Link></p>
+              )}
+              {registrationError && <p className="mt-3 text-sm text-red-300">{registrationError}</p>}
+              {registrationSuccess && <p className="mt-3 text-sm text-emerald-300">{registrationSuccess}</p>}
+              {registrationTeamId && myApplications.find((application) => application.teamId === registrationTeamId && application.championshipId === id) && (
+                <p className="mt-3 text-xs text-slate-500">Este time já possui uma solicitação para este campeonato.</p>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="mb-6 flex gap-2 overflow-x-auto border-b border-base-700">
         {tabs.map((t) => (

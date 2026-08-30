@@ -29,6 +29,12 @@ enum MatchStatus {
   PLAYED
 }
 
+enum ChampionshipApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id           String   @id @default(uuid())
   username     String   @unique
@@ -54,9 +60,10 @@ model Championship {
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 
-  teams  Team[]  @relation("ChampionshipTeams")
-  groups Group[]
-  matches Match[]
+  teams         Team[]                    @relation("ChampionshipTeams")
+  applications  ChampionshipApplication[]
+  groups        Group[]
+  matches       Match[]
 }
 
 model Team {
@@ -66,10 +73,11 @@ model Team {
   eaClubId       String?
   captainUserId  String?
   captainUser    User?        @relation("TeamCaptain", fields: [captainUserId], references: [id], onDelete: SetNull)
-  championshipId String
-  championship   Championship @relation("ChampionshipTeams", fields: [championshipId], references: [id], onDelete: Cascade)
+  championshipId String?
+  championship   Championship? @relation("ChampionshipTeams", fields: [championshipId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
 
+  applications   ChampionshipApplication[]
   groupEntries   GroupTeam[]
   homeMatches    Match[]      @relation("HomeTeam")
   awayMatches    Match[]      @relation("AwayTeam")
@@ -77,6 +85,22 @@ model Team {
   championOf     Championship[] @relation("ChampionTeam")
 
   @@unique([championshipId, name])
+}
+
+model ChampionshipApplication {
+  id             String                       @id @default(uuid())
+  teamId         String
+  championshipId String
+  status         ChampionshipApplicationStatus @default(PENDING)
+  reviewedAt     DateTime?
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+
+  team           Team                         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  championship   Championship                 @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, championshipId])
+  @@index([championshipId, status])
 }
 
 model Group {

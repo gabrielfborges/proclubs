@@ -143,3 +143,7 @@ Em produção, lembre-se de:
 ### Chats das partidas no Discord
 
 Na tela de gerenciamento, o botao **Comecar partida** cria um canal de texto privado no servidor Discord configurado, liberado para os dois capitaes e para os administradores informados. O cadastro e feito normalmente; depois do login, cada usuario pode clicar em **Vincular Discord** na barra superior. Configure `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` e `DISCORD_REDIRECT_URI` no backend e cadastre a URL de retorno no OAuth2 do Discord. O bot precisa estar no servidor e ter a permissao **Gerenciar canais**.
+
+### Times independentes criados por usuarios
+
+Usuarios autenticados podem usar a aba **Criar time** para buscar o clube na EA pelo nome, confirmar o `EaClubId` e criar um time independente. O time fica vinculado ao usuario criador como capitao e nao e inscrito automaticamente em nenhum campeonato. A inscricao em campeonatos e feita separadamente.

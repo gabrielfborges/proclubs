@@ -9,7 +9,7 @@ export interface Team {
   eaClubId: string | null;
   captainUserId: string | null;
   captainUser?: Pick<User, "id" | "username"> | null;
-  championshipId: string;
+  championshipId: string | null;
   createdAt: string;
 }
 
@@ -89,6 +89,33 @@ export interface Match {
   discordChannelId: string | null;
   discordChannelUrl: string | null;
   startedAt: string | null;
+}
+
+export interface EaClubSearchResult {
+  clubId: string;
+  name: string;
+  regionId: string | null;
+  wins: number | null;
+  draws: number | null;
+  losses: number | null;
+}
+
+export type ChampionshipApplicationStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface ChampionshipApplication {
+  id: string;
+  teamId: string;
+  championshipId: string;
+  status: ChampionshipApplicationStatus;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  team: Team;
+  championship?: Pick<Championship, "id" | "name" | "stage">;
+}
+
+export interface UserTeam extends Team {
+  championship?: Pick<Championship, "id" | "name" | "stage"> | null;
 }
 
 export interface User {

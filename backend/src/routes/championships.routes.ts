@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAdmin } from "../middleware/auth";
+import { requireAdmin, requireAuth } from "../middleware/auth";
 import {
   listChampionships,
   getChampionship,
@@ -7,7 +7,14 @@ import {
   updateChampionship,
   deleteChampionship,
 } from "../controllers/championship.controller";
-import { listTeams, createTeam, updateTeam, deleteTeam } from "../controllers/team.controller";
+import { createOwnTeam, listOwnTeams, listTeams, createTeam, updateTeam, deleteTeam } from "../controllers/team.controller";
+import { searchEaClubs } from "../controllers/ea.controller";
+import {
+  listMyApplications,
+  listChampionshipApplications,
+  requestChampionshipApplication,
+  reviewChampionshipApplication,
+} from "../controllers/application.controller";
 import {
   listGroups,
   createGroups,
@@ -30,6 +37,13 @@ import {
 
 const router = Router();
 
+// --- Busca de clubes EA ---
+router.get("/ea/clubs/search", requireAuth, searchEaClubs);
+
+// --- Solicitacoes de inscricao ---
+router.get("/applications/mine", requireAuth, listMyApplications);
+router.patch("/applications/:id", requireAdmin, reviewChampionshipApplication);
+
 // --- Campeonatos (publico para GET, admin para escrita) ---
 router.get("/", listChampionships);
 router.get("/:id", getChampionship);
@@ -38,8 +52,13 @@ router.patch("/:id", requireAdmin, updateChampionship);
 router.delete("/:id", requireAdmin, deleteChampionship);
 
 // --- Times ---
+router.get("/teams/mine", requireAuth, listOwnTeams);
+router.post("/teams/self", requireAuth, createOwnTeam);
 router.get("/:championshipId/teams", listTeams);
 router.post("/:championshipId/teams", requireAdmin, createTeam);
+router.get("/:championshipId/applications", requireAdmin, listChampionshipApplications);
+router.post("/:championshipId/applications", requireAuth, requestChampionshipApplication);
+
 router.patch("/teams/:id", requireAdmin, updateTeam);
 router.delete("/teams/:id", requireAdmin, deleteTeam);
 

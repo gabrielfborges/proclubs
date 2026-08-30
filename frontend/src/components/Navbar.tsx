@@ -64,6 +64,16 @@ export function Navbar() {
 
           {isAuthenticated ? (
             <>
+
+
+              <NavLink
+                to="/times/criar"
+                className={({ isActive }) =>
+                  `hover:text-accent-400 transition-colors ${isActive ? "text-accent-400" : "text-slate-300"}`
+                }
+              >
+                Criar time
+              </NavLink>
               {isAdmin && (
                 <NavLink
                   to="/admin"

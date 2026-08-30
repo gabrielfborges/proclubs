@@ -18,19 +18,22 @@ import {
   fetchKnockoutReadiness,
   generateKnockoutRequest,
   advanceKnockoutRequest,
+  fetchChampionshipApplicationsRequest,
+  reviewChampionshipApplicationRequest,
 } from "../../api/championships";
-import { Championship, Group, Match, Team, User } from "../../types";
+import { Championship, ChampionshipApplication, Group, Match, Team, User } from "../../types";
 import { Loading, ErrorBox } from "../../components/Loading";
 import { StatusBadge } from "../../components/StatusBadge";
 import { BracketView } from "../../components/BracketView";
 import { getApiErrorMessage } from "../../api/client";
 
-type TabKey = "teams" | "groups" | "knockout";
+type TabKey = "teams" | "applications" | "groups" | "knockout";
 
 export function ChampionshipManage() {
   const { id } = useParams<{ id: string }>();
   const [championship, setChampionship] = useState<Championship | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [applications, setApplications] = useState<ChampionshipApplication[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupMatches, setGroupMatches] = useState<Match[]>([]);
@@ -46,9 +49,10 @@ export function ChampionshipManage() {
     if (!id) return;
     setLoading(true);
     try {
-      const [champ, teamList, userList, groupList, matches, knockout, readiness] = await Promise.all([
+      const [champ, teamList, applicationList, userList, groupList, matches, knockout, readiness] = await Promise.all([
         fetchChampionship(id),
         fetchTeams(id),
+        fetchChampionshipApplicationsRequest(id),
         fetchUsersRequest(),
         fetchGroups(id),
         fetchMatches(id, "GROUP"),
@@ -57,6 +61,7 @@ export function ChampionshipManage() {
       ]);
       setChampionship(champ);
       setTeams(teamList);
+      setApplications(applicationList);
       setUsers(userList);
       setGroups(groupList);
       setGroupMatches(matches);
@@ -93,6 +98,7 @@ export function ChampionshipManage() {
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: "teams", label: "Times" },
+    { key: "applications", label: `Inscrições${applications.filter((application) => application.status === "PENDING").length ? ` (${applications.filter((application) => application.status === "PENDING").length})` : ""}` },
     { key: "groups", label: "Grupos & Partidas" },
     { key: "knockout", label: "Mata-mata" },
   ];
@@ -141,6 +147,16 @@ export function ChampionshipManage() {
             runAction(() => createTeamRequest(id, { name, logoUrl: logoUrl || undefined, eaClubId, captainUserId }))
           }
           onRemove={(teamId) => runAction(() => deleteTeamRequest(teamId))}
+        />
+      )}
+
+      {tab === "applications" && (
+        <ApplicationsPanel
+          applications={applications}
+          disabled={actionLoading}
+          onReview={(applicationId, status) =>
+            runAction(() => reviewChampionshipApplicationRequest(applicationId, status))
+          }
         />
       )}
 
@@ -294,6 +310,88 @@ function TeamsPanel({
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function ApplicationsPanel({
+  applications,
+  disabled,
+  onReview,
+}: {
+  applications: ChampionshipApplication[];
+  disabled: boolean;
+  onReview: (applicationId: string, status: "APPROVED" | "REJECTED") => void;
+}) {
+  const pending = applications.filter((application) => application.status === "PENDING");
+  const reviewed = applications.filter((application) => application.status !== "PENDING");
+
+  return (
+    <div className="space-y-5">
+      <div className="card p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-accent-400">Solicitações recebidas</p>
+        <h2 className="mt-1 text-lg font-semibold">Analisar inscrições</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Aprove uma solicitação para vincular o time ao campeonato. A recusa mantém o time independente.
+        </p>
+      </div>
+
+      {pending.length > 0 && (
+        <div className="space-y-3">
+          {pending.map((application) => (
+            <div key={application.id} className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                {application.team.logoUrl ? (
+                  <img src={application.team.logoUrl} alt={application.team.name} className="h-10 w-10 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-base-800 text-sm font-bold text-slate-400">
+                    {application.team.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-slate-200">{application.team.name}</p>
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    Capitão: {application.team.captainUser?.username || "não informado"} · EA: {application.team.eaClubId || "não informado"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button className="btn-secondary !border-red-500/30 !text-red-300 hover:!bg-red-500/10" disabled={disabled} onClick={() => onReview(application.id, "REJECTED")}>
+                  Recusar
+                </button>
+                <button className="btn-primary" disabled={disabled} onClick={() => onReview(application.id, "APPROVED")}>
+                  Aceitar
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {pending.length === 0 && (
+        <div className="card px-4 py-10 text-center text-sm text-slate-500">
+          Nenhuma solicitação pendente para este campeonato.
+        </div>
+      )}
+
+      {reviewed.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-semibold text-slate-300">Histórico</h3>
+          <div className="space-y-2">
+            {reviewed.map((application) => (
+              <div key={application.id} className="flex items-center justify-between gap-3 rounded-lg border border-base-700 bg-base-900/60 p-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-slate-300">{application.team.name}</p>
+                  <p className="truncate text-xs text-slate-500">{application.team.captainUser?.username || "Capitão não informado"}</p>
+                </div>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${application.status === "APPROVED" ? "bg-emerald-500/15 text-emerald-300" : "bg-red-500/15 text-red-300"}`}>
+                  {application.status === "APPROVED" ? "Aprovada" : "Recusada"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

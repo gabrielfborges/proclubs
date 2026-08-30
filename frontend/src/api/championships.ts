@@ -1,5 +1,5 @@
 import { api } from "./client";
-import { Championship, Group, GroupStandings, Match, Team, User } from "../types";
+import { Championship, ChampionshipApplication, EaClubSearchResult, Group, GroupStandings, Match, Team, User, UserTeam } from "../types";
 
 export async function fetchChampionships() {
   const { data } = await api.get<Championship[]>("/championships");
@@ -122,6 +122,53 @@ export async function generateKnockoutRequest(championshipId: string) {
 export async function advanceKnockoutRequest(championshipId: string) {
   const { data } = await api.post<{ finished: boolean; championTeamId?: string }>(
     `/championships/${championshipId}/knockout/advance`
+  );
+  return data;
+}
+
+export async function searchEaClubsRequest(name: string) {
+  const { data } = await api.get<EaClubSearchResult[]>("/championships/ea/clubs/search", {
+    params: { name },
+  });
+  return data;
+}
+
+export async function createOwnTeamRequest(input: { name: string; eaClubId: string }) {
+  const { data } = await api.post<Team>("/championships/teams/self", input);
+  return data;
+}
+export async function fetchMyTeamsRequest() {
+  const { data } = await api.get<UserTeam[]>("/championships/teams/mine");
+  return data;
+}
+
+export async function fetchMyApplicationsRequest() {
+  const { data } = await api.get<ChampionshipApplication[]>("/championships/applications/mine");
+  return data;
+}
+
+export async function requestChampionshipApplicationRequest(championshipId: string, teamId: string) {
+  const { data } = await api.post<ChampionshipApplication>(
+    `/championships/${championshipId}/applications`,
+    { teamId }
+  );
+  return data;
+}
+
+export async function fetchChampionshipApplicationsRequest(championshipId: string) {
+  const { data } = await api.get<ChampionshipApplication[]>(
+    `/championships/${championshipId}/applications`
+  );
+  return data;
+}
+
+export async function reviewChampionshipApplicationRequest(
+  applicationId: string,
+  status: "APPROVED" | "REJECTED"
+) {
+  const { data } = await api.patch<ChampionshipApplication>(
+    `/championships/applications/${applicationId}`,
+    { status }
   );
   return data;
 }

@@ -12,6 +12,15 @@ export interface EaMatchResult {
   timestamp: number;
 }
 
+export interface EaClubSearchResult {
+  clubId: string;
+  name: string;
+  regionId: string | null;
+  wins: number | null;
+  draws: number | null;
+  losses: number | null;
+}
+
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -195,4 +204,91 @@ export async function findLatestEaMatch(
     );
   }
   return results[0];
+}
+
+function getSearchRecords(payload: unknown): JsonObject[] {
+  if (Array.isArray(payload)) return payload.filter(isObject);
+  if (!isObject(payload)) return [];
+
+  for (const key of ["clubs", "results", "data", "entries"]) {
+    if (payload[key] !== undefined) {
+      const records = asRecordArray(payload[key]);
+      if (records.length > 0) return records;
+    }
+  }
+
+  return Object.entries(payload).flatMap(([key, value]) => {
+    if (!isObject(value)) return [];
+    return [{ ...value, clubId: getClubId(value) || key }];
+  });
+}
+
+function getClubName(record: JsonObject): string | null {
+  const value = firstValue(record, ["clubName", "name", "club_name", "title"]);
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function getOptionalNumber(record: JsonObject, keys: string[]): number | null {
+  const value = asNumber(firstValue(record, keys));
+  return value === null ? null : Math.max(0, Math.trunc(value));
+}
+
+export async function searchEaClubs(clubName: string): Promise<EaClubSearchResult[]> {
+  const searchPaths = ["allTimeLeaderboard/search", "currentSeasonLeaderboard/search"];
+  let response: Response | null = null;
+
+  for (const searchPath of searchPaths) {
+    const url = new URL(`${EA_API_BASE_URL}/${searchPath}`);
+    url.searchParams.set("platform", EA_PLATFORM);
+    url.searchParams.set("clubName", clubName);
+    url.searchParams.set("maxResultCount", "50");
+
+    try {
+      const candidate = await fetch(url, {
+        headers: {
+          accept: "application/json",
+          "accept-language": "en-US,en;q=0.9",
+          referer: "https://www.ea.com/",
+          "user-agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/141.0.0.0 Safari/537.36",
+        },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (candidate.ok) {
+        response = candidate;
+        break;
+      }
+    } catch {
+      // Tenta o endpoint alternativo antes de informar indisponibilidade.
+    }
+  }
+
+  if (!response) {
+    throw new AppError("A busca de clubes da EA esta indisponivel no momento. Tente novamente mais tarde.", 502);
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new AppError("A EA retornou uma resposta invalida para a busca do clube.", 502);
+  }
+
+  const unique = new Map<string, EaClubSearchResult>();
+  for (const record of getSearchRecords(payload)) {
+    const clubId = getClubId(record);
+    const name = getClubName(record);
+    if (!clubId || !name || unique.has(clubId)) continue;
+
+    unique.set(clubId, {
+      clubId,
+      name,
+      regionId: asId(firstValue(record, ["regionId", "regionID", "region"])),
+      wins: getOptionalNumber(record, ["wins", "winCount"]),
+      draws: getOptionalNumber(record, ["draws", "drawCount"]),
+      losses: getOptionalNumber(record, ["losses", "lossCount"]),
+    });
+  }
+
+  return [...unique.values()].slice(0, 50);
 }

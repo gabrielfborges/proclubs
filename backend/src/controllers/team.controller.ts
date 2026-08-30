@@ -12,6 +12,11 @@ const createSchema = z.object({
 
 const updateSchema = createSchema.partial();
 
+const selfCreateSchema = z.object({
+  name: z.string().trim().min(2, "Nome do time deve ter ao menos 2 caracteres."),
+  eaClubId: z.string().regex(/^\d+$/, "O EaClubId deve conter apenas numeros."),
+});
+
 export const listTeams = asyncHandler(async (req: Request, res: Response) => {
   const teams = await prisma.team.findMany({
     where: { championshipId: req.params.championshipId },
@@ -68,7 +73,7 @@ export const updateTeam = asyncHandler(async (req: Request, res: Response) => {
   const team = await prisma.team.findUnique({ where: { id: req.params.id } });
   if (!team) throw new AppError("Time nao encontrado.", 404);
 
-  if (data.name) {
+  if (data.name && team.championshipId) {
     const existing = await prisma.team.findUnique({
       where: { championshipId_name: { championshipId: team.championshipId, name: data.name } },
     });
@@ -101,10 +106,42 @@ export const deleteTeam = asyncHandler(async (req: Request, res: Response) => {
   });
   if (!team) throw new AppError("Time nao encontrado.", 404);
 
-  if (team.championship.stage !== "REGISTRATION") {
+  if (team.championship && team.championship.stage !== "REGISTRATION") {
     throw new AppError("Nao e possivel remover times apos o inicio do campeonato.");
   }
 
   await prisma.team.delete({ where: { id: req.params.id } });
   res.status(204).send();
+});
+
+export const createOwnTeam = asyncHandler(async (req: Request, res: Response) => {
+  const data = selfCreateSchema.parse(req.body);
+  const captainUserId = req.user?.id;
+  if (!captainUserId) throw new AppError("Usuario nao autenticado.", 401);
+
+  const existing = await prisma.team.findFirst({
+    where: { captainUserId, name: data.name, championshipId: null },
+  });
+  if (existing) throw new AppError("Voce ja possui um time com esse nome.");
+
+  const team = await prisma.team.create({
+    data: {
+      name: data.name,
+      eaClubId: data.eaClubId,
+      captainUserId,
+    },
+    include: { captainUser: { select: { id: true, username: true } } },
+  });
+  res.status(201).json(team);
+});
+export const listOwnTeams = asyncHandler(async (req: Request, res: Response) => {
+  const captainUserId = req.user?.id;
+  if (!captainUserId) throw new AppError("Usuario nao autenticado.", 401);
+
+  const teams = await prisma.team.findMany({
+    where: { captainUserId },
+    include: { championship: { select: { id: true, name: true, stage: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  res.json(teams);
 });
