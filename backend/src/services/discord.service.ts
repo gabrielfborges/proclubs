@@ -27,6 +27,15 @@ const CAPTAIN_PERMISSIONS = String(
 );
 const ADMINISTRATOR = String(1 << 3);
 
+function envValue(name: string) {
+  const value = process.env[name]?.trim();
+  if (!value) return undefined;
+  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    return value.slice(1, -1).trim();
+  }
+  return value;
+}
+
 function requiredDiscordId(value: string | null | undefined, label: string) {
   if (!value || !/^\d{15,25}$/.test(value)) {
     throw new AppError(`${label} nao foi configurado corretamente no backend.`, 503);
@@ -35,18 +44,18 @@ function requiredDiscordId(value: string | null | undefined, label: string) {
 }
 
 function discordConfig() {
-  const token = process.env.DISCORD_BOT_TOKEN;
+  const token = envValue("DISCORD_BOT_TOKEN");
   if (!token) {
     throw new AppError("O bot do Discord ainda nao foi configurado no backend.", 503);
   }
 
   return {
     token,
-    guildId: requiredDiscordId(process.env.DISCORD_GUILD_ID, "DISCORD_GUILD_ID"),
-    categoryId: process.env.DISCORD_CATEGORY_ID
-      ? requiredDiscordId(process.env.DISCORD_CATEGORY_ID, "DISCORD_CATEGORY_ID")
+    guildId: requiredDiscordId(envValue("DISCORD_GUILD_ID"), "DISCORD_GUILD_ID"),
+    categoryId: envValue("DISCORD_CATEGORY_ID")
+      ? requiredDiscordId(envValue("DISCORD_CATEGORY_ID"), "DISCORD_CATEGORY_ID")
       : undefined,
-    adminIds: (process.env.DISCORD_ADMIN_IDS || "")
+    adminIds: (envValue("DISCORD_ADMIN_IDS") || "")
       .split(",")
       .map((id) => id.trim())
       .filter((id) => /^\d{15,25}$/.test(id)),
