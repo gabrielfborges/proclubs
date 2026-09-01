@@ -7,8 +7,9 @@ import {
   updateChampionship,
   deleteChampionship,
 } from "../controllers/championship.controller";
-import { createOwnTeam, listOwnTeams, listTeams, createTeam, updateTeam, deleteTeam } from "../controllers/team.controller";
+import { createOwnTeam, listOwnTeams, listTeams, createTeam, updateTeam, updateOwnTeam, deleteTeam } from "../controllers/team.controller";
 import { searchEaClubs } from "../controllers/ea.controller";
+import { createTeamPlayer, deleteTeamPlayer, listTeamPlayers, syncTeamPlayers } from "../controllers/player.controller";
 import {
   listMyApplications,
   listChampionshipApplications,
@@ -54,6 +55,11 @@ router.delete("/:id", requireAdmin, deleteChampionship);
 // --- Times ---
 router.get("/teams/mine", requireAuth, listOwnTeams);
 router.post("/teams/self", requireAuth, createOwnTeam);
+router.patch("/teams/:id/self", requireAuth, updateOwnTeam);
+router.get("/teams/:id/players", requireAuth, listTeamPlayers);
+router.post("/teams/:id/players/sync", requireAuth, syncTeamPlayers);
+router.post("/teams/:id/players", requireAuth, createTeamPlayer);
+router.delete("/teams/:id/players/:playerId", requireAuth, deleteTeamPlayer);
 router.get("/:championshipId/teams", listTeams);
 router.post("/:championshipId/teams", requireAdmin, createTeam);
 router.get("/:championshipId/applications", requireAdmin, listChampionshipApplications);

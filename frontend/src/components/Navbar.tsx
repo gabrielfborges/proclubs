@@ -71,12 +71,12 @@ export function Navbar() {
 
 
               <NavLink
-                to="/times/criar"
+                to="/times"
                 className={({ isActive }) =>
                   `hover:text-accent-400 transition-colors ${isActive ? "text-accent-400" : "text-slate-300"}`
                 }
               >
-                Criar time
+                Editar time
               </NavLink>
               {isAdmin && (
                 <NavLink

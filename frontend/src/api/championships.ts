@@ -1,5 +1,5 @@
 import { api } from "./client";
-import { Championship, ChampionshipApplication, EaClubSearchResult, Group, GroupStandings, Match, Team, User, UserTeam } from "../types";
+import { Championship, ChampionshipApplication, EaClubSearchResult, Group, GroupStandings, Match, Player, Team, User, UserTeam } from "../types";
 
 export async function fetchChampionships() {
   const { data } = await api.get<Championship[]>("/championships");
@@ -171,4 +171,29 @@ export async function reviewChampionshipApplicationRequest(
     { status }
   );
   return data;
+}
+export async function updateOwnTeamRequest(teamId: string, input: { name: string; logoUrl?: string; eaClubId: string }) {
+  const { data } = await api.patch<Team>("/championships/teams/" + teamId + "/self", input);
+  return data;
+}
+
+export async function fetchTeamPlayersRequest(teamId: string) {
+  const { data } = await api.get<Player[]>("/championships/teams/" + teamId + "/players");
+  return data;
+}
+
+export async function syncTeamPlayersRequest(teamId: string) {
+  const { data } = await api.post<{ players: Player[]; added: number; updated: number; remoteCount: number }>(
+    "/championships/teams/" + teamId + "/players/sync"
+  );
+  return data;
+}
+
+export async function createTeamPlayerRequest(teamId: string, input: { name: string; position?: string; externalId?: string }) {
+  const { data } = await api.post<Player>("/championships/teams/" + teamId + "/players", input);
+  return data;
+}
+
+export async function deleteTeamPlayerRequest(teamId: string, playerId: string) {
+  await api.delete("/championships/teams/" + teamId + "/players/" + playerId);
 }

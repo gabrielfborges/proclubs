@@ -83,6 +83,7 @@ model Team {
   awayMatches    Match[]      @relation("AwayTeam")
   wonMatches     Match[]      @relation("WinnerTeam")
   championOf     Championship[] @relation("ChampionTeam")
+  players        Player[]
 
   @@unique([championshipId, name])
 }
@@ -160,4 +161,18 @@ model Match {
   startedAt         DateTime?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
+}
+model Player {
+  id         String   @id @default(uuid())
+  teamId     String
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  name       String
+  externalId String?
+  position   String?
+  isManual   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([teamId, name])
+  @@index([teamId])
 }

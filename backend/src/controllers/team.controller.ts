@@ -145,3 +145,34 @@ export const listOwnTeams = asyncHandler(async (req: Request, res: Response) => 
   });
   res.json(teams);
 });
+const selfUpdateSchema = z.object({
+  name: z.string().trim().min(2, "Nome do time deve ter ao menos 2 caracteres.").optional(),
+  logoUrl: z.string().url().optional().or(z.literal("")),
+  eaClubId: z.string().regex(/^\d+$/, "O EaClubId deve conter apenas numeros.").optional(),
+});
+
+export const updateOwnTeam = asyncHandler(async (req: Request, res: Response) => {
+  const captainUserId = req.user?.id;
+  if (!captainUserId) throw new AppError("Usuario nao autenticado.", 401);
+  const data = selfUpdateSchema.parse(req.body);
+  const team = await prisma.team.findFirst({ where: { id: req.params.id, captainUserId } });
+  if (!team) throw new AppError("Time nao encontrado ou sem permissao para editar.", 404);
+
+  if (data.name) {
+    const existing = await prisma.team.findFirst({
+      where: { captainUserId, name: data.name, id: { not: team.id } },
+    });
+    if (existing) throw new AppError("Voce ja possui um time com esse nome.", 409);
+  }
+
+  const updated = await prisma.team.update({
+    where: { id: team.id },
+    data: {
+      name: data.name,
+      logoUrl: data.logoUrl === "" ? null : data.logoUrl,
+      eaClubId: data.eaClubId,
+    },
+    include: { championship: { select: { id: true, name: true, stage: true } } },
+  });
+  res.json(updated);
+});

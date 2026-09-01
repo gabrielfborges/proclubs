@@ -13,6 +13,17 @@ export interface Team {
   createdAt: string;
 }
 
+export interface Player {
+  id: string;
+  teamId: string;
+  name: string;
+  externalId: string | null;
+  position: string | null;
+  isManual: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Championship {
   id: string;
   name: string;

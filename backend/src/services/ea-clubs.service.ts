@@ -12,6 +12,12 @@ export interface EaMatchResult {
   timestamp: number;
 }
 
+export interface EaPlayerResult {
+  name: string;
+  externalId: string | null;
+  position: string | null;
+}
+
 export interface EaClubSearchResult {
   clubId: string;
   name: string;
@@ -291,4 +297,69 @@ export async function searchEaClubs(clubName: string): Promise<EaClubSearchResul
   }
 
   return [...unique.values()].slice(0, 50);
+}
+function getPlayerRecords(payload: unknown): JsonObject[] {
+  if (Array.isArray(payload)) return payload.filter(isObject);
+  if (!isObject(payload)) return [];
+  if (payload.members !== undefined) return asRecordArray(payload.members);
+  return Object.values(payload).filter(isObject);
+}
+
+function getPlayerName(record: JsonObject): string | null {
+  const value = firstValue(record, ["name", "playername", "playerName", "proName", "gamertag"]);
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function getPlayerExternalId(record: JsonObject): string | null {
+  return asId(firstValue(record, ["playerId", "playerID", "blazeId", "personaId"]));
+}
+
+function getPlayerPosition(record: JsonObject): string | null {
+  const value = firstValue(record, ["proPos", "position", "favoritePosition", "pos"]);
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+async function fetchMembersEndpoint(
+  clubId: string,
+  endpoint: "members/career/stats" | "members/stats"
+) {
+  const url = new URL(EA_API_BASE_URL + "/" + endpoint);
+  url.searchParams.set("platform", EA_PLATFORM);
+  url.searchParams.set("clubId", clubId);
+  if (endpoint === "members/stats") url.searchParams.set("seasonId", "current");
+
+  const response = await fetch(url, {
+    headers: {
+      accept: "application/json",
+      "accept-language": "en-US,en;q=0.9",
+      referer: "https://www.ea.com/",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/141.0.0.0 Safari/537.36",
+    },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error("EA API returned " + response.status);
+  return response.json();
+}
+
+export async function syncEaClubPlayers(clubId: string): Promise<EaPlayerResult[]> {
+  let payload: unknown;
+  try {
+    payload = await fetchMembersEndpoint(clubId, "members/career/stats");
+  } catch {
+    payload = await fetchMembersEndpoint(clubId, "members/stats");
+  }
+
+  const unique = new Map<string, EaPlayerResult>();
+  for (const record of getPlayerRecords(payload)) {
+    const name = getPlayerName(record);
+    if (!name) continue;
+    const key = name.toLocaleLowerCase();
+    if (unique.has(key)) continue;
+    unique.set(key, {
+      name,
+      externalId: getPlayerExternalId(record),
+      position: getPlayerPosition(record),
+    });
+  }
+  return [...unique.values()];
 }
