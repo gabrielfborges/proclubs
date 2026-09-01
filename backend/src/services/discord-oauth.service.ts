@@ -130,13 +130,20 @@ async function exchangeCodeRequest(code: string) {
     });
 
     if (response.status === 429) {
-      const retryAfter = retryAfterSeconds ?? Number(retryAfterHeader);
-      const cooldownSeconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+      // Quando os dois valores divergem, respeitamos o maior para nao repetir
+      // a requisicao antes do bloqueio real terminar.
+      const headerRetryAfter = Number(retryAfterHeader);
+      const retryAfterValues = [retryAfterSeconds, headerRetryAfter].filter(
+        (value): value is number =>
+          typeof value === "number" && Number.isFinite(value) && value > 0
+      );
+      const retryAfter = retryAfterValues.length > 0 ? Math.max(...retryAfterValues) : undefined;
+      const cooldownSeconds = retryAfter ?? 60;
       discordRateLimitedUntil = Math.max(
         discordRateLimitedUntil,
         Date.now() + cooldownSeconds * 1000
       );
-      const waitMessage = Number.isFinite(retryAfter) && retryAfter > 0
+      const waitMessage = retryAfter
         ? ` Aguarde aproximadamente ${Math.ceil(retryAfter)} segundos.`
         : " Aguarde alguns minutos e tente novamente.";
       throw new AppError(`O Discord limitou temporariamente as tentativas.${waitMessage}`, 429);
