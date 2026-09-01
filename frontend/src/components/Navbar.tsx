@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { beginDiscordLinkRequest } from "../api/auth";
 import { getApiErrorMessage } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import logoUrl from "../../../img/logo.png";
+import logoUrl from "../assets/logo.png";
 
 export function Navbar() {
   const { isAuthenticated, isAdmin, user, logout } = useAuth();
@@ -122,3 +122,4 @@ export function Navbar() {
     </header>
   );
 }
+
