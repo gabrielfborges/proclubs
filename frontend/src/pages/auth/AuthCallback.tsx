@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { ErrorBox, Loading } from "../../components/Loading";
@@ -7,8 +7,12 @@ export function AuthCallback() {
   const { completeLogin } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState("");
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const token = params.get("auth_token");
     window.history.replaceState({}, document.title, window.location.pathname);

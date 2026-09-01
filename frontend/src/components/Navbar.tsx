@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { beginDiscordLinkRequest } from "../api/auth";
 import { getApiErrorMessage } from "../api/client";
@@ -11,6 +11,7 @@ export function Navbar() {
   const location = useLocation();
   const [linkingDiscord, setLinkingDiscord] = useState(false);
   const [discordError, setDiscordError] = useState("");
+  const linkingDiscordRef = useRef(false);
 
   useEffect(() => {
     const message = new URLSearchParams(location.search).get("discord_error");
@@ -26,6 +27,8 @@ export function Navbar() {
   }
 
   async function handleLinkDiscord() {
+    if (linkingDiscordRef.current) return;
+    linkingDiscordRef.current = true;
     setDiscordError("");
     setLinkingDiscord(true);
     try {
@@ -34,6 +37,7 @@ export function Navbar() {
     } catch (err) {
       setDiscordError(getApiErrorMessage(err));
       setLinkingDiscord(false);
+      linkingDiscordRef.current = false;
     }
   }
 

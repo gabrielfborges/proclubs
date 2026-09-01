@@ -4,7 +4,16 @@ import { AppError } from "../middleware/errorHandler";
 const DISCORD_OAUTH_API = "https://discord.com/oauth2";
 const DISCORD_TOKEN_API = "https://discord.com/api/v10/oauth2/token";
 const DISCORD_API = "https://discord.com/api/v10";
-const pendingLinks = new Map<string, { userId: string; expiresAt: number }>();
+const pendingLinks = new Map<
+  string,
+  { userId: string; expiresAt: number; processing?: boolean }
+>();
+// Evita que um refresh, duplo clique ou retry do proxy troque o mesmo code duas vezes.
+const inFlightCodeExchanges = new Map<
+  string,
+  Promise<{ access_token?: string }>
+>();
+let discordRateLimitedUntil = 0;
 
 export type DiscordOAuthUser = {
   id: string;
@@ -16,7 +25,7 @@ function oauthConfig() {
   const clientSecret = process.env.DISCORD_CLIENT_SECRET;
   const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
   const redirectUri =
-    process.env.DISCORD_REDIRECT_URI ||
+    process.env.DISCORD_REDIRECT_URI?.trim() ||
     `http://localhost:${process.env.PORT || 3333}/api/auth/discord/callback`;
 
   if (!clientId || !clientSecret) {
@@ -42,14 +51,21 @@ export function beginDiscordLink(userId: string) {
     scope: "identify",
     redirect_uri: config.redirectUri,
     state,
-    prompt: "consent",
   });
 
   return `${DISCORD_OAUTH_API}/authorize?${params.toString()}`;
 }
 
-async function exchangeCode(code: string) {
+async function exchangeCodeRequest(code: string) {
   const config = oauthConfig();
+  if (discordRateLimitedUntil > Date.now()) {
+    const remainingSeconds = Math.ceil((discordRateLimitedUntil - Date.now()) / 1000);
+    throw new AppError(
+      `O Discord esta limitando temporariamente as tentativas. Aguarde aproximadamente ${remainingSeconds} segundos.`,
+      429
+    );
+  }
+
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code,
@@ -66,7 +82,7 @@ async function exchangeCode(code: string) {
         Authorization: `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64")}`,
         "User-Agent": "FC-Pro-Clubs-Manager/1.0",
       },
-      body,
+      body: body.toString(),
     });
   } catch (error) {
     console.error("Falha de rede ao trocar o codigo OAuth do Discord.", error);
@@ -76,13 +92,20 @@ async function exchangeCode(code: string) {
   if (!response.ok) {
     const rawBody = await response.text();
     const contentType = response.headers.get("content-type") || "desconhecido";
+    const retryAfterHeader = response.headers.get("retry-after");
+    const rateLimitScope = response.headers.get("x-ratelimit-scope");
+    const globalRateLimit = response.headers.get("x-ratelimit-global");
+    let retryAfterSeconds: number | undefined;
     let detail = `resposta sem detalhe (HTTP ${response.status}, ${contentType})`;
     try {
       const parsed = JSON.parse(rawBody) as {
         error?: string;
         error_description?: string;
         message?: string;
+        retry_after?: number;
       };
+      retryAfterSeconds =
+        typeof parsed.retry_after === "number" ? parsed.retry_after : undefined;
       detail =
         parsed.error_description ||
         parsed.message ||
@@ -100,10 +123,23 @@ async function exchangeCode(code: string) {
       status: response.status,
       detail,
       redirectUri: config.redirectUri,
+      retryAfterHeader,
+      retryAfterSeconds,
+      rateLimitScope,
+      globalRateLimit,
     });
 
     if (response.status === 429) {
-      throw new AppError("O Discord limitou temporariamente as tentativas. Aguarde alguns minutos e tente novamente.", 429);
+      const retryAfter = retryAfterSeconds ?? Number(retryAfterHeader);
+      const cooldownSeconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+      discordRateLimitedUntil = Math.max(
+        discordRateLimitedUntil,
+        Date.now() + cooldownSeconds * 1000
+      );
+      const waitMessage = Number.isFinite(retryAfter) && retryAfter > 0
+        ? ` Aguarde aproximadamente ${Math.ceil(retryAfter)} segundos.`
+        : " Aguarde alguns minutos e tente novamente.";
+      throw new AppError(`O Discord limitou temporariamente as tentativas.${waitMessage}`, 429);
     }
 
     throw new AppError(`Nao foi possivel concluir a vinculacao do Discord: ${detail}`, 502);
@@ -117,17 +153,45 @@ async function exchangeCode(code: string) {
   }
 }
 
+async function exchangeCode(code: string) {
+  const running = inFlightCodeExchanges.get(code);
+  if (running) return running;
+
+  const exchange = exchangeCodeRequest(code);
+  inFlightCodeExchanges.set(code, exchange);
+  try {
+    return await exchange;
+  } finally {
+    if (inFlightCodeExchanges.get(code) === exchange) {
+      inFlightCodeExchanges.delete(code);
+    }
+  }
+}
+
 export async function completeDiscordLink(state: string, code: string) {
   const config = oauthConfig();
   const pending = pendingLinks.get(state);
-  pendingLinks.delete(state);
   if (!pending || pending.expiresAt <= Date.now()) {
+    pendingLinks.delete(state);
     throw new AppError("A sessao de vinculacao do Discord expirou. Tente novamente.", 400);
   }
+  if (pending.processing) {
+    throw new AppError("Esta vinculacao do Discord ja esta sendo processada. Aguarde.", 409);
+  }
 
-  const token = await exchangeCode(code);
-  if (!token.access_token) {
-    throw new AppError("O Discord nao retornou um token de autorizacao.", 502);
+  pending.processing = true;
+  let token: { access_token?: string };
+  try {
+    token = await exchangeCode(code);
+    if (!token.access_token) {
+      throw new AppError("O Discord nao retornou um token de autorizacao.", 502);
+    }
+    // O code foi consumido com sucesso; a partir daqui o state nao pode ser reutilizado.
+    pendingLinks.delete(state);
+  } catch (error) {
+    // Em caso de 429 ou falha de rede, mantemos o state valido para permitir nova tentativa.
+    pending.processing = false;
+    throw error;
   }
 
   const response = await fetch(`${DISCORD_API}/users/@me`, {
