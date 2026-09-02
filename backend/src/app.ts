@@ -14,7 +14,7 @@ export function createApp() {
   );
   app.use(express.json());
 
-  app.get("/api/health", (req, res) => res.json({ status: "ok" }));
+  app.get("/api/health", (req, res) => res.json({ status: "ok", release: "ea-reader-fallback" }));
 
   app.use("/api/auth", authRoutes);
   app.use("/api/championships", championshipRoutes);
