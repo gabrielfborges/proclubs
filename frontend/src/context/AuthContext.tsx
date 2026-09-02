@@ -9,6 +9,7 @@ interface AuthContextValue {
   isAdmin: boolean;
   login: (identifier: string, password: string) => Promise<User>;
   completeLogin: (token: string) => Promise<User>;
+  updateUser: (user: User) => void;
   logout: () => void;
 }
 
@@ -47,6 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.user;
   }, []);
 
+  const updateUser = useCallback((nextUser: User) => {
+    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+    setUser(nextUser);
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
@@ -63,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin: user?.role === "ADMIN",
         login,
         completeLogin,
+        updateUser,
         logout,
       }}
     >

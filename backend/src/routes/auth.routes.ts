@@ -6,6 +6,7 @@ import {
   register,
   beginDiscordLink,
   discordCallback,
+  updateMe,
 } from "../controllers/auth.controller";
 import { requireAdmin, requireAuth } from "../middleware/auth";
 
@@ -17,5 +18,6 @@ router.post("/discord/begin", requireAuth, beginDiscordLink);
 router.get("/discord/callback", discordCallback);
 router.get("/users", requireAdmin, listUsers);
 router.get("/me", requireAuth, me);
+router.patch("/me", requireAuth, updateMe);
 
 export default router;

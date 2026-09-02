@@ -10,6 +10,7 @@ import { Register } from "./pages/auth/Register";
 import { AuthCallback } from "./pages/auth/AuthCallback";
 import { CreateTeam } from "./pages/auth/CreateTeam";
 import { EditTeam } from "./pages/auth/EditTeam";
+import { Profile } from "./pages/auth/Profile";
 
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { ChampionshipManage } from "./pages/admin/ChampionshipManage";
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/auth/callback" element={<AuthCallback />} />
 
             <Route element={<ProtectedRoute />}>
+              <Route path="/perfil" element={<Profile />} />
               <Route path="/times/criar" element={<CreateTeam />} />
               <Route path="/times" element={<EditTeam />} />
               <Route path="/times/editar/:id" element={<EditTeam />} />

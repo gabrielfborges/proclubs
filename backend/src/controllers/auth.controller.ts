@@ -25,6 +25,15 @@ const registrationSchema = z.object({
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres."),
 });
 
+const profileUpdateSchema = z.object({
+  username: registrationSchema.shape.username.optional(),
+  currentPassword: z.string().optional(),
+  newPassword: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres.").optional(),
+}).refine(
+  (data) => !data.newPassword || Boolean(data.currentPassword),
+  { message: "Informe sua senha atual para criar uma nova senha.", path: ["currentPassword"] }
+);
+
 function publicUser(user: {
   id: string;
   username: string;
@@ -129,4 +138,33 @@ export const listUsers = asyncHandler(async (_req: Request, res: Response) => {
 
 export const me = asyncHandler(async (req: Request, res: Response) => {
   res.json({ user: req.user });
+});
+
+export const updateMe = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user?.id) throw new AppError("Usuario nao autenticado.", 401);
+  const data = profileUpdateSchema.parse(req.body);
+  const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+  if (!user) throw new AppError("Usuario nao encontrado.", 404);
+
+  const updateData: { username?: string; passwordHash?: string } = {};
+  const username = data.username?.trim();
+  if (username && username !== user.username) {
+    const existing = await prisma.user.findFirst({
+      where: { username, id: { not: user.id } },
+    });
+    if (existing) throw new AppError("Esse usuario ja esta em uso.", 409);
+    updateData.username = username;
+  }
+
+  if (data.newPassword) {
+    const valid = await bcrypt.compare(data.currentPassword || "", user.passwordHash);
+    if (!valid) throw new AppError("A senha atual esta incorreta.", 400);
+    updateData.passwordHash = await bcrypt.hash(data.newPassword, 10);
+  }
+
+  const updated = Object.keys(updateData).length > 0
+    ? await prisma.user.update({ where: { id: user.id }, data: updateData })
+    : user;
+
+  res.json({ user: publicUser(updated) });
 });

@@ -45,6 +45,9 @@
   border-color: #292929;
 }
 .card:hover { border-color: #393939; }
+.profile-section-icon { display: grid; height: 42px; width: 42px; place-items: center; border-radius: 10px; background: rgba(253, 213, 1, 0.1); color: #fdd501; }
+.profile-avatar { display: grid; height: 68px; width: 68px; flex-shrink: 0; place-items: center; border: 1px solid #3a3a3a; border-radius: 999px; background: #202020; color: #fdd501; font-size: 20px; font-weight: 800; }
+.profile-readonly { color: #777; cursor: not-allowed; }
 
 .btn {
   @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
