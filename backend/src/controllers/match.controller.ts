@@ -18,10 +18,81 @@ export const listMatches = asyncHandler(async (req: Request, res: Response) => {
       awayTeam: { include: { captainUser: { select: { id: true, username: true } } } },
       group: true,
       playerStats: { include: { player: true }, orderBy: { player: { name: "asc" } } },
+      readiness: { select: { teamId: true } },
     },
     orderBy: [{ phase: "asc" }, { roundOrder: "asc" }],
   });
-  res.json(matches);
+  res.json(matches.map(({ readiness, ...match }) => ({
+    ...match,
+    readyTeamIds: readiness.map((item) => item.teamId),
+  })));
+});
+
+export const listMyMatches = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) throw new AppError("Usuario nao autenticado.", 401);
+
+  const matches = await prisma.match.findMany({
+    where: {
+      championshipId: req.params.championshipId,
+      status: "SCHEDULED",
+      OR: [
+        { homeTeam: { captainUserId: userId } },
+        { awayTeam: { captainUserId: userId } },
+      ],
+    },
+    include: {
+      homeTeam: { include: { captainUser: { select: { id: true, username: true } } } },
+      awayTeam: { include: { captainUser: { select: { id: true, username: true } } } },
+      group: true,
+      readiness: { select: { teamId: true } },
+    },
+    orderBy: [{ phase: "asc" }, { roundOrder: "asc" }],
+  });
+
+  res.json(matches.map(({ readiness, ...match }) => ({
+    ...match,
+    myTeamId: match.homeTeam?.captainUserId === userId
+      ? match.homeTeamId
+      : match.awayTeamId,
+    readyTeamIds: readiness.map((item) => item.teamId),
+  })));
+});
+
+export const markMatchReady = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) throw new AppError("Usuario nao autenticado.", 401);
+
+  const match = await prisma.match.findUnique({
+    where: { id: req.params.id },
+    include: { homeTeam: true, awayTeam: true },
+  });
+  if (!match) throw new AppError("Partida nao encontrada.", 404);
+  if (match.status === "PLAYED") {
+    throw new AppError("Esta partida ja foi encerrada.");
+  }
+
+  const team = [match.homeTeam, match.awayTeam].find(
+    (candidate) => candidate?.captainUserId === userId
+  );
+  if (!team) {
+    throw new AppError("Somente o capitao de um dos times pode confirmar presenca.", 403);
+  }
+
+  await prisma.matchReadiness.upsert({
+    where: { matchId_teamId: { matchId: match.id, teamId: team.id } },
+    update: { userId, readyAt: new Date() },
+    create: { matchId: match.id, teamId: team.id, userId },
+  });
+
+  const readiness = await prisma.matchReadiness.findMany({
+    where: { matchId: match.id },
+    select: { teamId: true },
+  });
+  res.json({
+    matchId: match.id,
+    readyTeamIds: readiness.map((item) => item.teamId),
+  });
 });
 
 const playerStatsSchema = z.object({

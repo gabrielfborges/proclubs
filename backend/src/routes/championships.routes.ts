@@ -24,6 +24,8 @@ import {
 } from "../controllers/group.controller";
 import {
   listMatches,
+  listMyMatches,
+  markMatchReady,
   updateMatchScore,
   resetMatchScore,
   fetchMatchScoreFromEa,
@@ -83,6 +85,8 @@ router.get("/:championshipId/statistics", getChampionshipStatistics);
 
 // --- Partidas ---
 router.get("/:championshipId/matches", listMatches);
+router.get("/:championshipId/matches/mine", requireAuth, listMyMatches);
+router.post("/matches/:id/ready", requireAuth, markMatchReady);
 router.patch("/matches/:id/score", requireAdmin, updateMatchScore);
 router.post("/matches/:id/score/ea", requireAdmin, fetchMatchScoreFromEa);
 router.post("/matches/:id/score/ea-client", requireAdmin, fetchMatchScoreFromEaClient);

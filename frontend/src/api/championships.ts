@@ -82,6 +82,18 @@ export async function fetchMatches(championshipId: string, phase?: "GROUP" | "KN
   return data;
 }
 
+export async function fetchMyChampionshipMatchesRequest(championshipId: string) {
+  const { data } = await api.get<Match[]>(`/championships/${championshipId}/matches/mine`);
+  return data;
+}
+
+export async function markMatchReadyRequest(matchId: string) {
+  const { data } = await api.post<{ matchId: string; readyTeamIds: string[] }>(
+    `/championships/matches/${matchId}/ready`
+  );
+  return data;
+}
+
 export async function updateMatchScoreRequest(
   matchId: string,
   input: { homeScore: number; awayScore: number; homePenalty?: number; awayPenalty?: number }

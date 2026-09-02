@@ -50,6 +50,7 @@ model User {
   createdAt    DateTime @default(now())
 
   captainOf    Team[]   @relation("TeamCaptain")
+  matchReadiness MatchReadiness[]
 }
 
 model Championship {
@@ -89,6 +90,7 @@ model Team {
   wonMatches     Match[]      @relation("WinnerTeam")
   championOf     Championship[] @relation("ChampionTeam")
   players        Player[]
+  matchReadiness MatchReadiness[]
 
   @@unique([championshipId, name])
 }
@@ -168,6 +170,22 @@ model Match {
   updatedAt DateTime    @updatedAt
 
   playerStats MatchPlayerStat[]
+  readiness   MatchReadiness[]
+}
+
+model MatchReadiness {
+  id        String   @id @default(uuid())
+  matchId   String
+  teamId    String
+  userId    String
+  readyAt   DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team  Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, teamId])
+  @@index([userId])
 }
 model Player {
   id         String   @id @default(uuid())

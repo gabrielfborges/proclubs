@@ -14,10 +14,14 @@ export const getKnockoutBracket = asyncHandler(async (req: Request, res: Respons
       homeTeam: { include: { captainUser: { select: { id: true, username: true } } } },
       awayTeam: { include: { captainUser: { select: { id: true, username: true } } } },
       winnerTeam: true,
+      readiness: { select: { teamId: true } },
     },
     orderBy: { roundOrder: "asc" },
   });
-  res.json(matches);
+  res.json(matches.map(({ readiness, ...match }) => ({
+    ...match,
+    readyTeamIds: readiness.map((item) => item.teamId),
+  })));
 });
 
 export const getKnockoutReadiness = asyncHandler(async (req: Request, res: Response) => {

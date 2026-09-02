@@ -6,6 +6,8 @@ import {
   fetchMatches,
   fetchKnockoutBracket,
   fetchChampionshipStatistics,
+  fetchMyChampionshipMatchesRequest,
+  markMatchReadyRequest,
   fetchMyApplicationsRequest,
   fetchMyTeamsRequest,
   requestChampionshipApplicationRequest,
@@ -41,6 +43,10 @@ export function ChampionshipDetail() {
   const [registrationSubmitting, setRegistrationSubmitting] = useState(false);
   const [registrationError, setRegistrationError] = useState("");
   const [registrationSuccess, setRegistrationSuccess] = useState("");
+  const [myMatches, setMyMatches] = useState<Match[]>([]);
+  const [myMatchesLoading, setMyMatchesLoading] = useState(false);
+  const [readyMatchId, setReadyMatchId] = useState("");
+  const [readyError, setReadyError] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -78,6 +84,19 @@ export function ChampionshipDetail() {
       .finally(() => setRegistrationLoading(false));
   }, [showRegistration, isAuthenticated, championship?.stage]);
 
+  useEffect(() => {
+    if (!id || !isAuthenticated) {
+      setMyMatches([]);
+      return;
+    }
+
+    setMyMatchesLoading(true);
+    fetchMyChampionshipMatchesRequest(id)
+      .then(setMyMatches)
+      .catch((err) => setReadyError(getApiErrorMessage(err)))
+      .finally(() => setMyMatchesLoading(false));
+  }, [id, isAuthenticated]);
+
   async function handleRegistrationSubmit(event: FormEvent) {
     event.preventDefault();
     if (!id || !registrationTeamId) return;
@@ -93,6 +112,23 @@ export function ChampionshipDetail() {
       setRegistrationError(getApiErrorMessage(err));
     } finally {
       setRegistrationSubmitting(false);
+    }
+  }
+
+  async function handleReady(matchId: string) {
+    setReadyMatchId(matchId);
+    setReadyError("");
+    try {
+      const result = await markMatchReadyRequest(matchId);
+      setMyMatches((current) =>
+        current.map((match) =>
+          match.id === matchId ? { ...match, readyTeamIds: result.readyTeamIds } : match
+        )
+      );
+    } catch (err) {
+      setReadyError(getApiErrorMessage(err));
+    } finally {
+      setReadyMatchId("");
     }
   }
 
@@ -183,6 +219,33 @@ export function ChampionshipDetail() {
         </section>
       )}
 
+      {isAuthenticated && championship.stage !== "REGISTRATION" && (
+        <section className="card mb-6 border-accent-500/20 p-4 sm:p-5">
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-accent-400">Sua agenda</p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-100">Minhas próximas partidas</h2>
+            <p className="mt-1 text-sm text-slate-400">Confirme quando seu time estiver pronto para jogar.</p>
+          </div>
+          {readyError && <p className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">{readyError}</p>}
+          {myMatchesLoading ? (
+            <p className="text-sm text-slate-500">Carregando suas partidas...</p>
+          ) : myMatches.length === 0 ? (
+            <p className="text-sm text-slate-500">Nenhuma partida próxima agendada para o seu time.</p>
+          ) : (
+            <div className="space-y-3">
+              {myMatches.map((match) => (
+                <UpcomingMatchCard
+                  key={match.id}
+                  match={match}
+                  loading={readyMatchId === match.id}
+                  onReady={() => handleReady(match.id)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       <div className="mb-6 flex gap-2 overflow-x-auto border-b border-base-700">
         {tabs.map((t) => (
           <button
@@ -242,6 +305,42 @@ export function ChampionshipDetail() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function UpcomingMatchCard({
+  match,
+  loading,
+  onReady,
+}: {
+  match: Match;
+  loading: boolean;
+  onReady: () => void;
+}) {
+  const myTeamReady = Boolean(match.myTeamId && match.readyTeamIds?.includes(match.myTeamId));
+  const homeReady = Boolean(match.homeTeamId && match.readyTeamIds?.includes(match.homeTeamId));
+  const awayReady = Boolean(match.awayTeamId && match.readyTeamIds?.includes(match.awayTeamId));
+
+  return (
+    <div className="rounded-lg border border-base-700 bg-base-900/60 p-3 sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs text-slate-500">
+            {match.round || "Fase de grupos"}{match.group ? " · Grupo " + match.group.name : ""}
+          </p>
+          <p className="mt-1 truncate text-sm font-semibold text-slate-100">
+            {match.homeTeam?.name || "A definir"} <span className="px-1 text-slate-500">x</span> {match.awayTeam?.name || "A definir"}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-wide">
+            <span className={homeReady ? "text-accent-400" : "text-slate-600"}>{homeReady ? "Casa pronta" : "Casa aguardando"}</span>
+            <span className={awayReady ? "text-accent-400" : "text-slate-600"}>{awayReady ? "Fora pronto" : "Fora aguardando"}</span>
+          </div>
+        </div>
+        <button type="button" className={myTeamReady ? "btn-secondary shrink-0" : "btn-primary shrink-0"} onClick={onReady} disabled={loading || myTeamReady}>
+          {loading ? "Confirmando..." : myTeamReady ? "Seu time está pronto" : "Estou pronto"}
+        </button>
+      </div>
     </div>
   );
 }

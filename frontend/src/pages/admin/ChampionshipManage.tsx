@@ -946,6 +946,16 @@ function MatchScoreRow({
         )}
 
         <div className="flex flex-wrap items-center justify-end gap-2 xl:min-w-[315px]">
+          {match.status === "SCHEDULED" && match.homeTeamId && match.awayTeamId && (
+            <div className="flex w-full items-center justify-end gap-2 text-[10px] font-semibold uppercase tracking-wide">
+              <span className={match.readyTeamIds?.includes(match.homeTeamId) ? "text-accent-400" : "text-slate-600"}>
+                {match.readyTeamIds?.includes(match.homeTeamId) ? "Casa pronta" : "Casa aguardando"}
+              </span>
+              <span className={match.readyTeamIds?.includes(match.awayTeamId) ? "text-accent-400" : "text-slate-600"}>
+                {match.readyTeamIds?.includes(match.awayTeamId) ? "Fora pronto" : "Fora aguardando"}
+              </span>
+            </div>
+          )}
           {match.discordChannelUrl ? (
             <a
               href={match.discordChannelUrl}

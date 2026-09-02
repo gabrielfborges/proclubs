@@ -126,6 +126,8 @@ export interface Match {
   discordChannelUrl: string | null;
   startedAt: string | null;
   playerStats?: MatchPlayerStat[];
+  readyTeamIds?: string[];
+  myTeamId?: string | null;
 }
 
 export interface EaClubSearchResult {
