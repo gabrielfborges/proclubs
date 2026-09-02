@@ -12,6 +12,8 @@ import {
   fetchMatches,
   updateMatchScoreRequest,
   fetchMatchScoreFromEaRequest,
+  fetchMatchPlayerStatsFromEaRequest,
+  updateMatchPlayerStatsRequest,
   resetMatchScoreRequest,
   startMatchRequest,
   fetchKnockoutBracket,
@@ -21,13 +23,13 @@ import {
   fetchChampionshipApplicationsRequest,
   reviewChampionshipApplicationRequest,
 } from "../../api/championships";
-import { Championship, ChampionshipApplication, Group, Match, Team, User } from "../../types";
+import { Championship, ChampionshipApplication, Group, Match, Team, User, Player } from "../../types";
 import { Loading, ErrorBox } from "../../components/Loading";
 import { StatusBadge } from "../../components/StatusBadge";
 import { BracketView } from "../../components/BracketView";
 import { getApiErrorMessage } from "../../api/client";
 
-type TabKey = "teams" | "applications" | "groups" | "knockout";
+type TabKey = "teams" | "applications" | "groups" | "knockout" | "stats";
 
 export function ChampionshipManage() {
   const { id } = useParams<{ id: string }>();
@@ -101,6 +103,7 @@ export function ChampionshipManage() {
     { key: "applications", label: `Inscrições${applications.filter((application) => application.status === "PENDING").length ? ` (${applications.filter((application) => application.status === "PENDING").length})` : ""}` },
     { key: "groups", label: "Grupos & Partidas" },
     { key: "knockout", label: "Mata-mata" },
+    { key: "stats", label: "Artilharia" },
   ];
 
   return (
@@ -177,6 +180,15 @@ export function ChampionshipManage() {
         />
       )}
 
+      {tab === "stats" && (
+        <ChampionshipStatsManagePanel
+          matches={[...groupMatches, ...knockoutMatches]}
+          teams={teams}
+          disabled={actionLoading}
+          onFetchEa={(matchId) => runAction(() => fetchMatchPlayerStatsFromEaRequest(matchId))}
+          onSave={(matchId, stats) => runAction(() => updateMatchPlayerStatsRequest(matchId, stats))}
+        />
+      )}
       {tab === "knockout" && (
         <KnockoutPanel
           championship={championship}
@@ -975,5 +987,89 @@ function MatchScoreRow({
         </p>
       )}
     </form>
+  );
+}
+function ChampionshipStatsManagePanel({
+  matches,
+  teams,
+  disabled,
+  onFetchEa,
+  onSave,
+}: {
+  matches: Match[];
+  teams: Team[];
+  disabled: boolean;
+  onFetchEa: (matchId: string) => void;
+  onSave: (matchId: string, stats: Array<{ playerId: string; goals: number; assists: number }>) => void;
+}) {
+  const availableMatches = matches.filter((match) => match.homeTeamId && match.awayTeamId);
+  const [selectedId, setSelectedId] = useState(availableMatches[0]?.id || "");
+  const selected = availableMatches.find((match) => match.id === selectedId) || availableMatches[0];
+  const [values, setValues] = useState<Record<string, { goals: string; assists: string }>>({});
+
+  useEffect(() => {
+    if (!selected) {
+      setValues({});
+      return;
+    }
+    const next: Record<string, { goals: string; assists: string }> = {};
+    for (const stat of selected.playerStats || []) {
+      next[stat.playerId] = { goals: String(stat.goals), assists: String(stat.assists) };
+    }
+    setValues(next);
+    if (!selectedId || !availableMatches.some((match) => match.id === selectedId)) setSelectedId(selected.id);
+  }, [selected?.id, selected?.playerStats, selectedId, availableMatches.length]);
+
+  const matchPlayers = selected
+    ? teams.filter((team) => team.id === selected.homeTeamId || team.id === selected.awayTeamId).flatMap((team) => team.players || []).sort((a, b) => a.name.localeCompare(b.name))
+    : [];
+
+  function setValue(playerId: string, field: "goals" | "assists", value: string) {
+    setValues((current) => ({
+      ...current,
+      [playerId]: { goals: current[playerId]?.goals || "0", assists: current[playerId]?.assists || "0", [field]: value.replace(/[^0-9]/g, "") },
+    }));
+  }
+
+  if (availableMatches.length === 0) {
+    return <div className="card px-4 py-10 text-center text-sm text-slate-500">Cadastre o resultado ou importe os dados de uma partida para lançar gols e assistências.</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="card p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-accent-400">Estatísticas do campeonato</p>
+        <h2 className="mt-1 text-lg font-semibold text-slate-100">Artilheiros e assistentes</h2>
+        <p className="mt-1 text-sm text-slate-400">Escolha uma partida para importar os dados da EA ou corrigir os jogadores manualmente.</p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="label">Partida</label>
+            <select className="input" value={selected?.id || ""} onChange={(event) => setSelectedId(event.target.value)}>
+              {availableMatches.map((match) => <option key={match.id} value={match.id}>{match.homeTeam?.name || "Casa"} {match.homeScore} x {match.awayScore} {match.awayTeam?.name || "Fora"}{match.round ? ` · ${match.round}` : ""}</option>)}
+            </select>
+          </div>
+          {selected && selected.homeTeam?.eaClubId && selected.awayTeam?.eaClubId && (
+            <button type="button" className="btn-secondary sm:shrink-0" disabled={disabled} onClick={() => onFetchEa(selected.id)}>Buscar gols e assistências na EA</button>
+          )}
+        </div>
+      </div>
+
+      {selected && (
+        <div className="card p-4">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div><h3 className="font-semibold text-slate-200">Lançamento manual</h3><p className="text-xs text-slate-500">Informe somente quem marcou ou deu assistência.</p></div>
+            <button type="button" className="btn-primary" disabled={disabled} onClick={() => onSave(selected.id, matchPlayers.map((player) => ({ playerId: player.id, goals: Number(values[player.id]?.goals || 0), assists: Number(values[player.id]?.assists || 0) })))}>Salvar estatísticas</button>
+          </div>
+          {matchPlayers.length === 0 ? <p className="text-sm text-slate-500">Cadastre ou sincronize os jogadores dos dois times antes de lançar as estatísticas.</p> : (
+            <div className="space-y-2">
+              {matchPlayers.map((player) => {
+                const saved = selected.playerStats?.find((stat) => stat.playerId === player.id);
+                return <div key={player.id} className="flex items-center gap-3 rounded-lg border border-base-700 bg-base-900/60 p-3"><span className="min-w-0 flex-1 truncate text-sm text-slate-200">{player.name}</span><span className="text-[10px] uppercase text-slate-500">{saved?.source === "EA" ? "EA" : saved ? "Manual" : ""}</span><label className="text-xs text-slate-500">G<input className="input ml-1 h-9 w-14 text-center" inputMode="numeric" value={values[player.id]?.goals || "0"} onChange={(event) => setValue(player.id, "goals", event.target.value)} /></label><label className="text-xs text-slate-500">A<input className="input ml-1 h-9 w-14 text-center" inputMode="numeric" value={values[player.id]?.assists || "0"} onChange={(event) => setValue(player.id, "assists", event.target.value)} /></label></div>;
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

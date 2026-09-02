@@ -1,5 +1,5 @@
 import { api } from "./client";
-import { Championship, ChampionshipApplication, EaClubSearchResult, Group, GroupStandings, Match, Player, Team, User, UserTeam } from "../types";
+import { Championship, ChampionshipApplication, EaClubSearchResult, Group, GroupStandings, Match, Player, Team, User, UserTeam, ChampionshipStatistics, MatchPlayerStat } from "../types";
 
 export async function fetchChampionships() {
   const { data } = await api.get<Championship[]>("/championships");
@@ -196,4 +196,18 @@ export async function createTeamPlayerRequest(teamId: string, input: { name: str
 
 export async function deleteTeamPlayerRequest(teamId: string, playerId: string) {
   await api.delete("/championships/teams/" + teamId + "/players/" + playerId);
+}
+export async function fetchChampionshipStatistics(championshipId: string) {
+  const { data } = await api.get<ChampionshipStatistics>(`/championships/${championshipId}/statistics`);
+  return data;
+}
+
+export async function updateMatchPlayerStatsRequest(matchId: string, stats: Array<{ playerId: string; goals: number; assists: number }>) {
+  const { data } = await api.put<MatchPlayerStat[]>(`/championships/matches/${matchId}/player-stats`, { stats });
+  return data;
+}
+
+export async function fetchMatchPlayerStatsFromEaRequest(matchId: string) {
+  const { data } = await api.post<MatchPlayerStat[]>(`/championships/matches/${matchId}/player-stats/ea`);
+  return data;
 }

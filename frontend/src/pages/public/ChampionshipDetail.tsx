@@ -5,11 +5,12 @@ import {
   fetchStandings,
   fetchMatches,
   fetchKnockoutBracket,
+  fetchChampionshipStatistics,
   fetchMyApplicationsRequest,
   fetchMyTeamsRequest,
   requestChampionshipApplicationRequest,
 } from "../../api/championships";
-import { Championship, ChampionshipApplication, GroupStandings, Match, UserTeam } from "../../types";
+import { Championship, ChampionshipApplication, GroupStandings, Match, UserTeam, ChampionshipStatistics } from "../../types";
 import { Loading, ErrorBox } from "../../components/Loading";
 import { StatusBadge } from "../../components/StatusBadge";
 import { StandingsTable } from "../../components/StandingsTable";
@@ -17,8 +18,9 @@ import { MatchList } from "../../components/MatchList";
 import { BracketView } from "../../components/BracketView";
 import { getApiErrorMessage } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
+import { ChampionshipStatisticsPanel } from "../../components/ChampionshipStatisticsPanel";
 
-type TabKey = "standings" | "matches" | "knockout" | "teams";
+type TabKey = "standings" | "matches" | "knockout" | "teams" | "stats";
 
 export function ChampionshipDetail() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +28,7 @@ export function ChampionshipDetail() {
   const [standings, setStandings] = useState<GroupStandings[]>([]);
   const [groupMatches, setGroupMatches] = useState<Match[]>([]);
   const [knockoutMatches, setKnockoutMatches] = useState<Match[]>([]);
+  const [statistics, setStatistics] = useState<ChampionshipStatistics>({ scorers: [], assisters: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<TabKey>("standings");
@@ -47,12 +50,14 @@ export function ChampionshipDetail() {
       fetchStandings(id),
       fetchMatches(id, "GROUP"),
       fetchKnockoutBracket(id),
+      fetchChampionshipStatistics(id),
     ])
-      .then(([champ, st, matches, knockout]) => {
+      .then(([champ, st, matches, knockout, stats]) => {
         setChampionship(champ);
         setStandings(st);
         setGroupMatches(matches);
         setKnockoutMatches(knockout);
+        setStatistics(stats);
       })
       .catch((err) => setError(getApiErrorMessage(err)))
       .finally(() => setLoading(false));
@@ -100,6 +105,7 @@ export function ChampionshipDetail() {
     { key: "matches", label: "Partidas" },
     { key: "knockout", label: "Mata-mata" },
     { key: "teams", label: "Times" },
+    { key: "stats", label: "Artilharia" },
   ];
 
   return (
@@ -192,6 +198,8 @@ export function ChampionshipDetail() {
           </button>
         ))}
       </div>
+
+      {tab === "stats" && <ChampionshipStatisticsPanel statistics={statistics} />}
 
       {tab === "standings" && (
         <div className="space-y-8">

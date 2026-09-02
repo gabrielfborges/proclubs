@@ -11,6 +11,7 @@ export interface Team {
   captainUser?: Pick<User, "id" | "username"> | null;
   championshipId: string | null;
   createdAt: string;
+  players?: Player[];
 }
 
 export interface Player {
@@ -78,6 +79,30 @@ export interface GroupStandings {
 export type MatchPhase = "GROUP" | "KNOCKOUT";
 export type MatchStatus = "SCHEDULED" | "PLAYED";
 
+export interface MatchPlayerStat {
+  id: string;
+  matchId: string;
+  playerId: string;
+  player: Player;
+  goals: number;
+  assists: number;
+  source: "EA" | "MANUAL";
+}
+
+export interface ChampionshipRankingRow {
+  playerId: string;
+  playerName: string;
+  teamId: string;
+  teamName: string;
+  goals?: number;
+  assists?: number;
+}
+
+export interface ChampionshipStatistics {
+  scorers: ChampionshipRankingRow[];
+  assisters: ChampionshipRankingRow[];
+}
+
 export interface Match {
   id: string;
   championshipId: string;
@@ -100,6 +125,7 @@ export interface Match {
   discordChannelId: string | null;
   discordChannelUrl: string | null;
   startedAt: string | null;
+  playerStats?: MatchPlayerStat[];
 }
 
 export interface EaClubSearchResult {

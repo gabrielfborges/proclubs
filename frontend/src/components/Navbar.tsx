@@ -51,7 +51,7 @@ export function Navbar() {
             className="h-10 w-10 object-contain"
           />
           <span>
-            Pro Clubs <span className="text-accent-400">Manager</span>
+            Rachão <span className="text-accent-400">Tournaments</span>
           </span>
         </Link>
 
