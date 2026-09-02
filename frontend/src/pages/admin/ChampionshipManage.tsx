@@ -174,7 +174,11 @@ export function ChampionshipManage() {
           onSaveScore={(matchId, homeScore, awayScore) =>
             runAction(() => updateMatchScoreRequest(matchId, { homeScore, awayScore }))
           }
-          onFetchScore={(matchId) => runAction(() => fetchMatchScoreFromEaRequest(matchId))}
+          onFetchScore={(match) =>
+            runAction(() =>
+              fetchMatchScoreFromEaRequest(match.id, match.homeTeam?.eaClubId, match.awayTeam?.eaClubId)
+            )
+          }
           onResetScore={(matchId) => runAction(() => resetMatchScoreRequest(matchId))}
           onStartChat={(matchId) => runAction(() => startMatchRequest(matchId))}
         />
@@ -185,7 +189,11 @@ export function ChampionshipManage() {
           matches={[...groupMatches, ...knockoutMatches]}
           teams={teams}
           disabled={actionLoading}
-          onFetchEa={(matchId) => runAction(() => fetchMatchPlayerStatsFromEaRequest(matchId))}
+          onFetchEa={(match) =>
+            runAction(() =>
+              fetchMatchPlayerStatsFromEaRequest(match.id, match.homeTeam?.eaClubId, match.awayTeam?.eaClubId)
+            )
+          }
           onSave={(matchId, stats) => runAction(() => updateMatchPlayerStatsRequest(matchId, stats))}
         />
       )}
@@ -202,7 +210,11 @@ export function ChampionshipManage() {
               updateMatchScoreRequest(matchId, { homeScore, awayScore, homePenalty, awayPenalty })
             )
           }
-          onFetchScore={(matchId) => runAction(() => fetchMatchScoreFromEaRequest(matchId))}
+          onFetchScore={(match) =>
+            runAction(() =>
+              fetchMatchScoreFromEaRequest(match.id, match.homeTeam?.eaClubId, match.awayTeam?.eaClubId)
+            )
+          }
           onResetScore={(matchId) => runAction(() => resetMatchScoreRequest(matchId))}
           onStartChat={(matchId) => runAction(() => startMatchRequest(matchId))}
         />
@@ -430,7 +442,7 @@ function GroupsPanel({
   onGenerateMatches: () => void;
   onSaveScore: (matchId: string, home: number, away: number) => void;
   onResetScore: (matchId: string) => void;
-  onFetchScore: (matchId: string) => void;
+  onFetchScore: (match: Match) => void;
   onStartChat: (matchId: string) => void;
 }) {
   const [groupFilter, setGroupFilter] = useState("ALL");
@@ -581,7 +593,7 @@ function GroupsPanel({
                   disabled={disabled}
                   onSave={(home, away) => onSaveScore(match.id, home, away)}
                   onReset={() => onResetScore(match.id)}
-                  onFetchScore={() => onFetchScore(match.id)}
+                  onFetchScore={() => onFetchScore(match)}
                     onStartChat={() => onStartChat(match.id)}
                 />
               ))}
@@ -632,7 +644,7 @@ function KnockoutPanel({
     awayPenalty?: number
   ) => void;
   onResetScore: (matchId: string) => void;
-  onFetchScore: (matchId: string) => void;
+  onFetchScore: (match: Match) => void;
   onStartChat: (matchId: string) => void;
 }) {
   const [roundFilter, setRoundFilter] = useState("CURRENT");
@@ -745,7 +757,7 @@ function KnockoutPanel({
                       onSaveScore(match.id, home, away, penHome, penAway)
                     }
                     onReset={() => onResetScore(match.id)}
-                    onFetchScore={() => onFetchScore(match.id)}
+                    onFetchScore={() => onFetchScore(match)}
                     onStartChat={() => onStartChat(match.id)}
                   />
                 ))}
@@ -999,7 +1011,7 @@ function ChampionshipStatsManagePanel({
   matches: Match[];
   teams: Team[];
   disabled: boolean;
-  onFetchEa: (matchId: string) => void;
+  onFetchEa: (match: Match) => void;
   onSave: (matchId: string, stats: Array<{ playerId: string; goals: number; assists: number }>) => void;
 }) {
   const availableMatches = matches.filter((match) => match.homeTeamId && match.awayTeamId);
@@ -1049,7 +1061,7 @@ function ChampionshipStatsManagePanel({
             </select>
           </div>
           {selected && selected.homeTeam?.eaClubId && selected.awayTeam?.eaClubId && (
-            <button type="button" className="btn-secondary sm:shrink-0" disabled={disabled} onClick={() => onFetchEa(selected.id)}>Buscar gols e assistências na EA</button>
+            <button type="button" className="btn-secondary sm:shrink-0" disabled={disabled} onClick={() => onFetchEa(selected)}>Buscar gols e assistências na EA</button>
           )}
         </div>
       </div>

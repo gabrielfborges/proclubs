@@ -27,7 +27,9 @@ import {
   updateMatchScore,
   resetMatchScore,
   fetchMatchScoreFromEa,
+  fetchMatchScoreFromEaClient,
   fetchMatchPlayerStatsFromEa,
+  fetchMatchPlayerStatsFromEaClient,
   updateMatchPlayerStats,
   startMatch,
 } from "../controllers/match.controller";
@@ -83,8 +85,10 @@ router.get("/:championshipId/statistics", getChampionshipStatistics);
 router.get("/:championshipId/matches", listMatches);
 router.patch("/matches/:id/score", requireAdmin, updateMatchScore);
 router.post("/matches/:id/score/ea", requireAdmin, fetchMatchScoreFromEa);
+router.post("/matches/:id/score/ea-client", requireAdmin, fetchMatchScoreFromEaClient);
 router.put("/matches/:id/player-stats", requireAdmin, updateMatchPlayerStats);
 router.post("/matches/:id/player-stats/ea", requireAdmin, fetchMatchPlayerStatsFromEa);
+router.post("/matches/:id/player-stats/ea-client", requireAdmin, fetchMatchPlayerStatsFromEaClient);
 router.post("/matches/:id/start", requireAdmin, startMatch);
 router.post("/matches/:id/reset", requireAdmin, resetMatchScore);
 

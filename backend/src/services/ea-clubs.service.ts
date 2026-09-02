@@ -309,6 +309,29 @@ export async function findLatestEaMatch(
   return results[0];
 }
 
+export function findLatestEaMatchFromPayloads(
+  homeClubId: string,
+  awayClubId: string,
+  payloads: unknown[]
+): EaMatchResult {
+  const results: EaMatchResult[] = [];
+
+  for (const payload of payloads) {
+    for (const record of getMatchRecords(payload)) {
+      const parsed = parseMatch(record, homeClubId, awayClubId);
+      if (parsed) results.push(parsed);
+    }
+  }
+
+  results.sort((a, b) => b.timestamp - a.timestamp);
+  if (!results[0]) {
+    throw new AppError(
+      "Nao foi encontrado um resultado recente entre esses dois clubes na API da EA. Confira os EaClubIds e se a partida ja foi registrada no jogo."
+    );
+  }
+  return results[0];
+}
+
 function getSearchRecords(payload: unknown): JsonObject[] {
   if (Array.isArray(payload)) return payload.filter(isObject);
   if (!isObject(payload)) return [];

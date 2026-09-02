@@ -3,7 +3,6 @@ import cors from "cors";
 import authRoutes from "./routes/auth.routes";
 import championshipRoutes from "./routes/championships.routes";
 import { errorHandler } from "./middleware/errorHandler";
-import { searchEaClubs } from "./services/ea-clubs.service";
 
 export function createApp() {
   const app = express();

@@ -90,9 +90,60 @@ export async function updateMatchScoreRequest(
   return data;
 }
 
-export async function fetchMatchScoreFromEaRequest(matchId: string) {
-  const { data } = await api.post<Match>(`/championships/matches/${matchId}/score/ea`);
-  return data;
+const EA_MATCH_TYPES = ["friendlyMatch", "leagueMatch", "playoffMatch"] as const;
+
+async function fetchEaMatchPayloadsThroughBrowser(homeClubId: string, awayClubId: string): Promise<unknown[]> {
+  const responses = await Promise.allSettled(
+    EA_MATCH_TYPES.map(async (matchType) => {
+      const targetUrl = new URL("https://proclubs.ea.com/api/fc/clubs/matches");
+      targetUrl.searchParams.set("platform", "common-gen5");
+      targetUrl.searchParams.set("clubIds", homeClubId);
+      targetUrl.searchParams.set("matchType", matchType);
+      targetUrl.searchParams.set("maxResultCount", "10");
+
+      const readerUrl = `https://r.jina.ai/http://${targetUrl.host}${targetUrl.pathname}${targetUrl.search}`;
+      const { data: envelope } = await axios.get<EaReaderEnvelope>(readerUrl, {
+        headers: { Accept: "application/json" },
+        timeout: 20_000,
+      });
+      if (typeof envelope.data?.content !== "string" || !envelope.data.content.trim()) {
+        throw new Error("Resposta vazia da consulta de partidas da EA");
+      }
+      return JSON.parse(envelope.data.content) as unknown;
+    })
+  );
+
+  const payloads = responses.flatMap((response) => response.status === "fulfilled" ? [response.value] : []);
+  if (payloads.length === 0) {
+    throw new Error("Não foi possível consultar as partidas da EA pelo navegador");
+  }
+  return payloads;
+}
+
+export async function fetchMatchScoreFromEaRequest(
+  matchId: string,
+  homeClubId?: string | null,
+  awayClubId?: string | null
+) {
+  try {
+    const { data } = await api.post<Match>(`/championships/matches/${matchId}/score/ea`);
+    return data;
+  } catch (error) {
+    if (
+      !axios.isAxiosError(error) ||
+      error.response?.status !== 502 ||
+      !homeClubId ||
+      !awayClubId
+    ) {
+      throw error;
+    }
+    const payloads = await fetchEaMatchPayloadsThroughBrowser(homeClubId, awayClubId);
+    const { data } = await api.post<Match>(
+      `/championships/matches/${matchId}/score/ea-client`,
+      { payloads }
+    );
+    return data;
+  }
 }
 export async function resetMatchScoreRequest(matchId: string) {
   const { data } = await api.post<Match>(`/championships/matches/${matchId}/reset`);
@@ -359,7 +410,28 @@ export async function updateMatchPlayerStatsRequest(matchId: string, stats: Arra
   return data;
 }
 
-export async function fetchMatchPlayerStatsFromEaRequest(matchId: string) {
-  const { data } = await api.post<MatchPlayerStat[]>(`/championships/matches/${matchId}/player-stats/ea`);
-  return data;
+export async function fetchMatchPlayerStatsFromEaRequest(
+  matchId: string,
+  homeClubId?: string | null,
+  awayClubId?: string | null
+) {
+  try {
+    const { data } = await api.post<MatchPlayerStat[]>(`/championships/matches/${matchId}/player-stats/ea`);
+    return data;
+  } catch (error) {
+    if (
+      !axios.isAxiosError(error) ||
+      error.response?.status !== 502 ||
+      !homeClubId ||
+      !awayClubId
+    ) {
+      throw error;
+    }
+    const payloads = await fetchEaMatchPayloadsThroughBrowser(homeClubId, awayClubId);
+    const { data } = await api.post<MatchPlayerStat[]>(
+      `/championships/matches/${matchId}/player-stats/ea-client`,
+      { payloads }
+    );
+    return data;
+  }
 }
