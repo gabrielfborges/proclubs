@@ -156,7 +156,9 @@
   .nav-item span { display: none; }
   .site-account { border-top: 0; padding: 0 12px 0 0; }
   .account-card { height: 64px; }
-  .account-card > div:nth-child(2), .account-logout, .discord-link, .account-actions, .discord-alert { display: none; }
+  .account-card > div:nth-child(2), .account-logout, .discord-link, .discord-alert { display: none; }
+  .account-actions { display: flex; align-items: center; gap: 6px; }
+  .account-actions a { width: auto; white-space: nowrap; padding-left: 10px; padding-right: 10px; font-size: 11px; }
 }
 .app-main h1 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 900; text-transform: uppercase; }
 .app-main h2 { font-weight: 800; }
