@@ -35,9 +35,11 @@ export function Navbar() {
   const location = useLocation();
   const [linkingDiscord, setLinkingDiscord] = useState(false);
   const [discordError, setDiscordError] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const linkingDiscordRef = useRef(false);
 
   useEffect(() => {
+    setMobileMenuOpen(false);
     const message = new URLSearchParams(location.search).get("discord_error");
     if (message) {
       setDiscordError(message);
@@ -66,7 +68,7 @@ export function Navbar() {
   }
 
   return (
-    <aside className="site-sidebar">
+    <aside className={mobileMenuOpen ? "site-sidebar mobile-menu-open" : "site-sidebar"}>
       <div className="site-brand-wrap">
         <Link to="/" className="site-brand">
           <span className="brand-name">RACHÃO<span>.</span></span>
@@ -74,7 +76,23 @@ export function Navbar() {
         </Link>
       </div>
 
-      <nav className="site-nav-links" aria-label="Navegação principal">
+      <button
+        type="button"
+        className="mobile-menu-toggle"
+        onClick={() => setMobileMenuOpen((open) => !open)}
+        aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+        aria-expanded={mobileMenuOpen}
+      >
+        <span />
+        <span />
+        <span />
+      </button>
+
+      <nav
+        className="site-nav-links"
+        aria-label="Navegação principal"
+        onClick={() => setMobileMenuOpen(false)}
+      >
         <SidebarLink to="/" label="Hub" icon="home" end />
         <Link to="/" className={`nav-item ${location.pathname === "/" ? "nav-item-muted" : ""}`}>
           <NavIcon name="compass" />

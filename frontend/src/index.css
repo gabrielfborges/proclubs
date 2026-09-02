@@ -99,6 +99,9 @@
   border-right: 1px solid #252525;
   background: #0c0c0c;
 }
+.mobile-menu-toggle {
+  display: none;
+}
 .site-brand-wrap {
   display: flex;
   min-height: 92px;
@@ -148,17 +151,26 @@
 
 @media (max-width: 767px) {
   .site-sidebar { inset: 0 0 auto 0; width: 100%; height: 64px; flex-direction: row; border-right: 0; border-bottom: 1px solid #252525; }
-  .site-brand-wrap { min-height: 64px; border-bottom: 0; padding: 0 18px; }
+  .site-sidebar.mobile-menu-open { height: auto; max-height: 100vh; overflow-y: auto; flex-direction: column; }
+  .site-brand-wrap { min-height: 64px; flex: 1; border-bottom: 0; padding: 0 18px; }
   .brand-name { font-size: 18px; }
   .brand-subtitle { margin-top: 4px; font-size: 7px; }
-  .site-nav-links { flex-direction: row; align-items: center; justify-content: flex-end; gap: 2px; padding: 0 10px; }
-  .nav-item { min-height: 38px; gap: 0; padding: 0 10px; }
-  .nav-item span { display: none; }
-  .site-account { border-top: 0; padding: 0 12px 0 0; }
+  .mobile-menu-toggle { display: flex; height: 40px; width: 40px; flex-shrink: 0; flex-direction: column; align-items: center; justify-content: center; gap: 5px; margin: 0 12px 0 0; border: 1px solid #353535; border-radius: 6px; background: #151515; color: #fdd501; }
+  .mobile-menu-toggle span { display: block; width: 17px; height: 2px; border-radius: 99px; background: currentColor; transition: transform 180ms ease, opacity 180ms ease; }
+  .mobile-menu-open .mobile-menu-toggle span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .mobile-menu-open .mobile-menu-toggle span:nth-child(2) { opacity: 0; }
+  .mobile-menu-open .mobile-menu-toggle span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+  .site-nav-links { display: none; flex: none; width: 100%; flex-direction: column; align-items: stretch; gap: 4px; padding: 10px 12px; }
+  .mobile-menu-open .site-nav-links { display: flex; }
+  .nav-item { min-height: 42px; gap: 13px; padding: 0 13px; }
+  .nav-item span { display: inline; }
+  .site-account { display: none; border-top: 1px solid #252525; padding: 12px 16px 16px; }
+  .mobile-menu-open .site-account { display: block; }
   .account-card { height: 64px; }
-  .account-card > div:nth-child(2), .account-logout, .discord-link, .discord-alert { display: none; }
-  .account-actions { display: flex; align-items: center; gap: 6px; }
-  .account-actions a { width: auto; white-space: nowrap; padding-left: 10px; padding-right: 10px; font-size: 11px; }
+  .mobile-menu-open .account-card > div:nth-child(2), .mobile-menu-open .account-logout, .mobile-menu-open .discord-link, .mobile-menu-open .discord-alert { display: block; }
+  .mobile-menu-open .account-card { height: auto; }
+  .mobile-menu-open .account-actions { display: grid; gap: 8px; }
+  .mobile-menu-open .account-actions a { width: 100%; }
 }
 .app-main h1 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 900; text-transform: uppercase; }
 .app-main h2 { font-weight: 800; }
