@@ -3,6 +3,13 @@ import { AppError } from "../middleware/errorHandler";
 const EA_API_BASE_URL = "https://proclubs.ea.com/api/fc";
 const EA_PLATFORM = process.env.EA_PLATFORM || "common-gen5";
 const MATCH_TYPES = ["friendlyMatch", "leagueMatch", "playoffMatch"] as const;
+const EA_REQUEST_HEADERS = {
+  accept: "application/json, text/plain, */*",
+  "accept-language": "en-US,en;q=0.5",
+  connection: "keep-alive",
+  referer: "https://www.ea.com/",
+  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0",
+};
 
 type JsonObject = { [key: string]: unknown };
 
@@ -241,15 +248,7 @@ async function fetchMatchType(
   url.searchParams.set("maxResultCount", "10");
 
   const response = await fetch(url, {
-    headers: {
-      accept: "application/json",
-      "accept-language": "en-US,en;q=0.9",
-      "sec-ch-ua": '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
-      "sec-fetch-site": "same-origin",
-      referer: "https://www.ea.com/",
-      "user-agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/141.0.0.0 Safari/537.36",
-    },
+    headers: EA_REQUEST_HEADERS,
     signal: AbortSignal.timeout(15_000),
   });
 
@@ -323,13 +322,7 @@ export async function searchEaClubs(clubName: string): Promise<EaClubSearchResul
 
     try {
       const candidate = await fetch(url, {
-        headers: {
-          accept: "application/json",
-          "accept-language": "en-US,en;q=0.9",
-          referer: "https://www.ea.com/",
-          "user-agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/141.0.0.0 Safari/537.36",
-        },
+        headers: EA_REQUEST_HEADERS,
         signal: AbortSignal.timeout(15_000),
       });
       if (candidate.ok) {
@@ -423,12 +416,7 @@ async function fetchMembersEndpoint(
   if (endpoint === "members/stats") url.searchParams.set("seasonId", "current");
 
   const response = await fetch(url, {
-    headers: {
-      accept: "application/json",
-      "accept-language": "en-US,en;q=0.9",
-      referer: "https://www.ea.com/",
-      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/141.0.0.0 Safari/537.36",
-    },
+    headers: EA_REQUEST_HEADERS,
     signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) throw new Error("EA API returned " + response.status);
