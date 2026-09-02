@@ -134,6 +134,7 @@
 .nav-item-active { color: #fdd501; background: rgba(253, 213, 1, 0.105); }
 .nav-item-active:hover { color: #fdd501; background: rgba(253, 213, 1, 0.14); }
 .nav-item-muted { color: #777; }
+.discord-nav-item { width: 100%; border: 0; background: transparent; text-align: left; }
 .site-account { border-top: 1px solid #252525; padding: 16px; }
 .account-card { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .account-avatar { display: grid; height: 32px; width: 32px; flex-shrink: 0; place-items: center; border-radius: 999px; background: #202020; color: #aaa; font-size: 10px; font-weight: 700; }

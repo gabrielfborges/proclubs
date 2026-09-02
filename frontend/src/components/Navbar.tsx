@@ -4,7 +4,7 @@ import { beginDiscordLinkRequest } from "../api/auth";
 import { getApiErrorMessage } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
-type IconName = "home" | "compass" | "edit" | "shield";
+type IconName = "home" | "compass" | "edit" | "shield" | "discord";
 
 function NavIcon({ name }: { name: IconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -14,6 +14,7 @@ function NavIcon({ name }: { name: IconName }) {
       {name === "compass" && <><circle {...common} cx="12" cy="12" r="8.5" /><path {...common} d="m14.9 9.1-1.8 4-4 1.8 1.8-4z" /></>}
       {name === "edit" && <><path {...common} d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3" /><path {...common} d="m13.5 8.5 3 3" /></>}
       {name === "shield" && <><path {...common} d="M12 3.5 19 6v5.2c0 4.2-2.7 7.7-7 9.3-4.3-1.6-7-5.1-7-9.3V6z" /><path {...common} d="m9 12 2 2 4-4" /></>}
+      {name === "discord" && <><path {...common} d="M7.5 7.5c3-1.4 6-1.4 9 0 1.2 1.8 1.8 3.8 1.8 6.2-1.8 1.5-3.7 2.3-5.8 2.8l-.7-1.4" /><path {...common} d="M7.5 7.5c-1.2 1.8-1.8 3.8-1.8 6.2 1.8 1.5 3.7 2.3 5.8 2.8" /><circle cx="9.5" cy="12" r=".7" fill="currentColor" /><circle cx="14.5" cy="12" r=".7" fill="currentColor" /></>}
     </svg>
   );
 }
@@ -80,6 +81,12 @@ export function Navbar() {
         </Link>
         {isAuthenticated && <SidebarLink to="/times" label="Meu time" icon="edit" />}
         {isAdmin && <SidebarLink to="/admin" label="Painel Admin" icon="shield" />}
+        {isAuthenticated && !user?.discordId && (
+          <button onClick={handleLinkDiscord} className="nav-item discord-nav-item" disabled={linkingDiscord}>
+            <NavIcon name="discord" />
+            <span>{linkingDiscord ? "Abrindo Discord..." : "Vincular Discord"}</span>
+          </button>
+        )}
       </nav>
 
       <div className="site-account">
@@ -99,13 +106,7 @@ export function Navbar() {
             <Link to="/login" className="btn-secondary w-full !py-2">Entrar</Link>
             <Link to="/register" className="btn-primary w-full !py-2">Criar conta</Link>
           </div>
-        )}
-        {isAuthenticated && !user?.discordId && (
-          <button onClick={handleLinkDiscord} className="discord-link" disabled={linkingDiscord}>
-            {linkingDiscord ? "Abrindo Discord..." : "Vincular Discord"}
-          </button>
-        )}
-      </div>
+        )}</div>
     </aside>
   );
 }
