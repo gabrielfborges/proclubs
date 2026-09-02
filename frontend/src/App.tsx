@@ -19,7 +19,7 @@ export default function App() {
       <AuthProvider>
         <div className="min-h-screen bg-base-950">
           <Navbar />
-          <Routes>
+          <main className="app-main"><Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/campeonatos/:id" element={<ChampionshipDetail />} />
             <Route path="/login" element={<Login />} />
@@ -49,7 +49,7 @@ export default function App() {
               }
             />
           </Routes>
-        </div>
+        </main></div>
       </AuthProvider>
     </BrowserRouter>
   );

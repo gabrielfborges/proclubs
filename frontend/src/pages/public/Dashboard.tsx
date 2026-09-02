@@ -31,15 +31,15 @@ export function Dashboard() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Campeonatos</h1>
-        <p className="text-sm text-slate-400">
+    <div className="mx-auto max-w-5xl px-4 py-12 discover-page">
+      <div className="mb-10">
+        <h1 className="text-4xl font-black uppercase">Campeonatos</h1>
+        <p className="mt-2 max-w-xl text-sm text-slate-500">
           Acompanhe os campeonatos de EA Sports FC Pro Clubs cadastrados na plataforma.
         </p>
       </div>
 
-      <div className="mb-6 flex gap-2 border-b border-base-700">
+      <div className="mb-8 flex gap-2 border-b border-base-700">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -59,12 +59,12 @@ export function Dashboard() {
       {error && <ErrorBox message={error} />}
 
       {!loading && !error && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="discovery-list">
           {filtered.map((champ) => (
             <Link
               key={champ.id}
               to={`/campeonatos/${champ.id}`}
-              className="card flex flex-col gap-3 p-4 hover:border-accent-500/50 transition-colors"
+              className="discovery-row"
             >
               <div className="flex items-start justify-between gap-2">
                 <h3 className="font-semibold leading-snug">{champ.name}</h3>

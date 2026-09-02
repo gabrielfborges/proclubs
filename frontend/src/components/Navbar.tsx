@@ -3,7 +3,29 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { beginDiscordLinkRequest } from "../api/auth";
 import { getApiErrorMessage } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import logoUrl from "../assets/logo.png";
+
+type IconName = "home" | "compass" | "edit" | "shield";
+
+function NavIcon({ name }: { name: IconName }) {
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  return (
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true">
+      {name === "home" && <><path {...common} d="m3.5 10 8.5-7 8.5 7" /><path {...common} d="M5.5 9.5v10h13v-10M9 19.5v-6h6v6" /></>}
+      {name === "compass" && <><circle {...common} cx="12" cy="12" r="8.5" /><path {...common} d="m14.9 9.1-1.8 4-4 1.8 1.8-4z" /></>}
+      {name === "edit" && <><path {...common} d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3" /><path {...common} d="m13.5 8.5 3 3" /></>}
+      {name === "shield" && <><path {...common} d="M12 3.5 19 6v5.2c0 4.2-2.7 7.7-7 9.3-4.3-1.6-7-5.1-7-9.3V6z" /><path {...common} d="m9 12 2 2 4-4" /></>}
+    </svg>
+  );
+}
+
+function SidebarLink({ to, label, icon, end = false }: { to: string; label: string; icon: IconName; end?: boolean }) {
+  return (
+    <NavLink to={to} end={end} className={({ isActive }) => `nav-item ${isActive ? "nav-item-active" : ""}`}>
+      <NavIcon name={icon} />
+      <span>{label}</span>
+    </NavLink>
+  );
+}
 
 export function Navbar() {
   const { isAuthenticated, isAdmin, user, logout } = useAuth();
@@ -42,84 +64,48 @@ export function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-base-700 bg-base-950/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link to="/" className="flex items-center gap-3 font-bold text-lg">
-          <img
-            src={logoUrl}
-            alt="FC Pro Clubs Manager"
-            className="h-10 w-10 object-contain"
-          />
-          <span>
-            Rachão <span className="text-accent-400">Tournaments</span>
-          </span>
+    <aside className="site-sidebar">
+      <div className="site-brand-wrap">
+        <Link to="/" className="site-brand">
+          <span className="brand-name">RACHÃO<span>.</span></span>
+          <span className="brand-subtitle">TOURNAMENTS</span>
         </Link>
-
-        <nav className="flex items-center gap-4 text-sm">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              `hover:text-accent-400 transition-colors ${isActive ? "text-accent-400" : "text-slate-300"}`
-            }
-          >
-            Campeonatos
-          </NavLink>
-
-          {isAuthenticated ? (
-            <>
-
-
-              <NavLink
-                to="/times"
-                className={({ isActive }) =>
-                  `hover:text-accent-400 transition-colors ${isActive ? "text-accent-400" : "text-slate-300"}`
-                }
-              >
-                Editar time
-              </NavLink>
-              {isAdmin && (
-                <NavLink
-                  to="/admin"
-                  className={({ isActive }) =>
-                    `hover:text-accent-400 transition-colors ${isActive ? "text-accent-400" : "text-slate-300"}`
-                  }
-                >
-                  Admin
-                </NavLink>
-              )}
-              {!user?.discordId && (
-                <button
-                  onClick={handleLinkDiscord}
-                  className="btn-secondary !py-1.5"
-                  disabled={linkingDiscord}
-                >
-                  {linkingDiscord ? "Abrindo Discord..." : "Vincular Discord"}
-                </button>
-              )}
-              <span className="hidden text-slate-500 sm:inline">{user?.username}</span>
-              <button onClick={handleLogout} className="btn-secondary !py-1.5">
-                Sair
-              </button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="btn-secondary !py-1.5">
-                Entrar
-              </Link>
-              <Link to="/register" className="btn-primary !py-1.5">
-                Criar conta
-              </Link>
-            </>
-          )}
-        </nav>
       </div>
-      {discordError && (
-        <div className="border-t border-red-500/20 bg-red-500/10 px-4 py-2 text-center text-xs text-red-300">
-          {discordError}
-        </div>
-      )}
-    </header>
+
+      <nav className="site-nav-links" aria-label="Navegação principal">
+        <SidebarLink to="/" label="Hub" icon="home" end />
+        <Link to="/" className={`nav-item ${location.pathname === "/" ? "nav-item-muted" : ""}`}>
+          <NavIcon name="compass" />
+          <span>Descobrir</span>
+        </Link>
+        {isAuthenticated && <SidebarLink to="/times" label="Meu time" icon="edit" />}
+        {isAdmin && <SidebarLink to="/admin" label="Painel Admin" icon="shield" />}
+      </nav>
+
+      <div className="site-account">
+        {discordError && <p className="discord-alert">{discordError}</p>}
+        {isAuthenticated ? (
+          <div className="account-card">
+            <div className="account-avatar">{(user?.username || "U").slice(0, 2).toUpperCase()}</div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-100">{user?.username}</p>
+              <p className="truncate text-[11px] text-slate-500">{user?.email || "Conta verificada"}</p>
+            </div>
+            <span className="online-dot" title="Online" />
+            <button onClick={handleLogout} className="account-logout" title="Sair">×</button>
+          </div>
+        ) : (
+          <div className="account-actions">
+            <Link to="/login" className="btn-secondary w-full !py-2">Entrar</Link>
+            <Link to="/register" className="btn-primary w-full !py-2">Criar conta</Link>
+          </div>
+        )}
+        {isAuthenticated && !user?.discordId && (
+          <button onClick={handleLinkDiscord} className="discord-link" disabled={linkingDiscord}>
+            {linkingDiscord ? "Abrindo Discord..." : "Vincular Discord"}
+          </button>
+        )}
+      </div>
+    </aside>
   );
 }
-
