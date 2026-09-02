@@ -4,7 +4,7 @@ import { beginDiscordLinkRequest } from "../api/auth";
 import { getApiErrorMessage } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
-type IconName = "home" | "compass" | "edit" | "shield" | "discord";
+type IconName = "home" | "compass" | "edit" | "shield" | "discord" | "users";
 
 function NavIcon({ name }: { name: IconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -15,6 +15,7 @@ function NavIcon({ name }: { name: IconName }) {
       {name === "edit" && <><path {...common} d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3" /><path {...common} d="m13.5 8.5 3 3" /></>}
       {name === "shield" && <><path {...common} d="M12 3.5 19 6v5.2c0 4.2-2.7 7.7-7 9.3-4.3-1.6-7-5.1-7-9.3V6z" /><path {...common} d="m9 12 2 2 4-4" /></>}
       {name === "discord" && <><path {...common} d="M7.5 7.5c3-1.4 6-1.4 9 0 1.2 1.8 1.8 3.8 1.8 6.2-1.8 1.5-3.7 2.3-5.8 2.8l-.7-1.4" /><path {...common} d="M7.5 7.5c-1.2 1.8-1.8 3.8-1.8 6.2 1.8 1.5 3.7 2.3 5.8 2.8" /><circle cx="9.5" cy="12" r=".7" fill="currentColor" /><circle cx="14.5" cy="12" r=".7" fill="currentColor" /></>}
+      {name === "users" && <><circle {...common} cx="9" cy="9" r="3" /><path {...common} d="M3.5 19c.5-3 2.4-4.5 5.5-4.5s5 1.5 5.5 4.5M16 6.5a3 3 0 0 1 0 5.8M16.5 14.7c2.2.4 3.5 1.8 4 4.3" /></>}
     </svg>
   );
 }
@@ -79,6 +80,7 @@ export function Navbar() {
           <NavIcon name="compass" />
           <span>Descobrir</span>
         </Link>
+        <SidebarLink to="/comunidade" label="Comunidade" icon="users" />
         {isAuthenticated && <SidebarLink to="/times" label="Meu time" icon="edit" />}
         {isAdmin && <SidebarLink to="/admin" label="Painel Admin" icon="shield" />}
         {isAuthenticated && !user?.discordId && (

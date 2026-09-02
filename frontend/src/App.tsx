@@ -4,6 +4,7 @@ import { Navbar } from "./components/Navbar";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/public/Dashboard";
 import { ChampionshipDetail } from "./pages/public/ChampionshipDetail";
+import { Community } from "./pages/public/Community";
 import { Login } from "./pages/admin/Login";
 import { Register } from "./pages/auth/Register";
 import { AuthCallback } from "./pages/auth/AuthCallback";
@@ -22,6 +23,7 @@ export default function App() {
           <main className="app-main"><Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/campeonatos/:id" element={<ChampionshipDetail />} />
+            <Route path="/comunidade" element={<Community />} />
             <Route path="/login" element={<Login />} />
             <Route path="/admin/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
