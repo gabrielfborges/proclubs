@@ -313,6 +313,7 @@ function getOptionalNumber(record: JsonObject, keys: string[]): number | null {
 export async function searchEaClubs(clubName: string): Promise<EaClubSearchResult[]> {
   const searchPaths = ["allTimeLeaderboard/search", "currentSeasonLeaderboard/search"];
   let response: Response | null = null;
+  const failures: Array<Record<string, unknown>> = [];
 
   for (const searchPath of searchPaths) {
     const url = new URL(`${EA_API_BASE_URL}/${searchPath}`);
@@ -335,19 +336,41 @@ export async function searchEaClubs(clubName: string): Promise<EaClubSearchResul
         response = candidate;
         break;
       }
-    } catch {
-      // Tenta o endpoint alternativo antes de informar indisponibilidade.
+      const responseBody = await candidate.text().catch(() => "");
+      failures.push({
+        endpoint: searchPath,
+        status: candidate.status,
+        statusText: candidate.statusText,
+        response: responseBody.slice(0, 500),
+      });
+    } catch (error) {
+      failures.push({
+        endpoint: searchPath,
+        error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      });
     }
   }
 
   if (!response) {
+    console.error("[EA_SEARCH_FAILED] A busca de clubes falhou em todos os endpoints", {
+      clubName,
+      platform: EA_PLATFORM,
+      failures,
+    });
     throw new AppError("A busca de clubes da EA esta indisponivel no momento. Tente novamente mais tarde.", 502);
   }
 
   let payload: unknown;
   try {
     payload = await response.json();
-  } catch {
+  } catch (error) {
+    console.error("[EA_SEARCH_INVALID_RESPONSE] A EA retornou um JSON invalido", {
+      clubName,
+      platform: EA_PLATFORM,
+      endpoint: response.url,
+      status: response.status,
+      error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+    });
     throw new AppError("A EA retornou uma resposta invalida para a busca do clube.", 502);
   }
 
