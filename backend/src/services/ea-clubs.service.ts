@@ -10,6 +10,33 @@ const EA_REQUEST_HEADERS = {
   referer: "https://www.ea.com/",
   "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0",
 };
+const EA_READER_PROXY_BASE_URL = process.env.EA_READER_PROXY_BASE_URL || "https://r.jina.ai/http://";
+
+type EaReaderResponse = {
+  data?: {
+    content?: unknown;
+  };
+};
+
+async function fetchEaThroughReader(url: URL): Promise<Response> {
+  const readerUrl = `${EA_READER_PROXY_BASE_URL}${url.host}${url.pathname}${url.search}`;
+  const response = await fetch(readerUrl, {
+    headers: { accept: "application/json", "user-agent": EA_REQUEST_HEADERS["user-agent"] },
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) throw new Error(`EA reader returned ${response.status}`);
+
+  const envelope = (await response.json()) as EaReaderResponse;
+  const content = envelope.data?.content;
+  if (typeof content !== "string" || !content.trim()) {
+    throw new Error("EA reader returned an empty response");
+  }
+
+  return new Response(content, {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
 
 type JsonObject = { [key: string]: unknown };
 
@@ -321,21 +348,42 @@ export async function searchEaClubs(clubName: string): Promise<EaClubSearchResul
     url.searchParams.set("maxResultCount", "50");
 
     try {
-      const candidate = await fetch(url, {
+      let candidate = await fetch(url, {
         headers: EA_REQUEST_HEADERS,
         signal: AbortSignal.timeout(15_000),
       });
+
+      if (!candidate.ok) {
+        const responseBody = await candidate.text().catch(() => "");
+        failures.push({
+          endpoint: searchPath,
+          status: candidate.status,
+          statusText: candidate.statusText,
+          response: responseBody.slice(0, 500),
+        });
+
+        if (candidate.status === 403) {
+          try {
+            candidate = await fetchEaThroughReader(url);
+            console.warn("[EA_SEARCH_FALLBACK] Busca realizada pelo fallback da EA", {
+              endpoint: searchPath,
+            });
+          } catch (fallbackError) {
+            failures.push({
+              endpoint: `${searchPath} via fallback`,
+              error:
+                fallbackError instanceof Error
+                  ? `${fallbackError.name}: ${fallbackError.message}`
+                  : String(fallbackError),
+            });
+          }
+        }
+      }
+
       if (candidate.ok) {
         response = candidate;
         break;
       }
-      const responseBody = await candidate.text().catch(() => "");
-      failures.push({
-        endpoint: searchPath,
-        status: candidate.status,
-        statusText: candidate.statusText,
-        response: responseBody.slice(0, 500),
-      });
     } catch (error) {
       failures.push({
         endpoint: searchPath,
