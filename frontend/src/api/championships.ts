@@ -1,3 +1,4 @@
+import axios from "axios";
 import { api } from "./client";
 import { Championship, ChampionshipApplication, EaClubSearchResult, Group, GroupStandings, Match, Player, Team, User, UserTeam, ChampionshipStatistics, MatchPlayerStat } from "../types";
 
@@ -126,11 +127,91 @@ export async function advanceKnockoutRequest(championshipId: string) {
   return data;
 }
 
-export async function searchEaClubsRequest(name: string) {
-  const { data } = await api.get<EaClubSearchResult[]>("/championships/ea/clubs/search", {
-    params: { name },
+type EaReaderEnvelope = {
+  data?: {
+    content?: unknown;
+  };
+};
+
+type EaReaderRecord = {
+  clubId?: unknown;
+  clubName?: unknown;
+  wins?: unknown;
+  losses?: unknown;
+  ties?: unknown;
+  draws?: unknown;
+  clubInfo?: {
+    clubId?: unknown;
+    name?: unknown;
+    regionId?: unknown;
+  };
+};
+
+function toNullableString(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return null;
+}
+
+function toNullableNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "" && /^-?\d+(\.\d+)?$/.test(value.trim())) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+async function searchEaClubsThroughBrowser(name: string): Promise<EaClubSearchResult[]> {
+  const targetUrl = new URL("https://proclubs.ea.com/api/fc/allTimeLeaderboard/search");
+  targetUrl.searchParams.set("platform", "common-gen5");
+  targetUrl.searchParams.set("clubName", name);
+  targetUrl.searchParams.set("maxResultCount", "50");
+
+  const readerUrl = `https://r.jina.ai/http://${targetUrl.host}${targetUrl.pathname}${targetUrl.search}`;
+  const { data: envelope } = await axios.get<EaReaderEnvelope>(readerUrl, {
+    headers: { Accept: "application/json" },
+    timeout: 20_000,
   });
-  return data;
+  if (typeof envelope.data?.content !== "string" || !envelope.data.content.trim()) {
+    throw new Error("Resposta vazia da consulta alternativa da EA");
+  }
+
+  const payload = JSON.parse(envelope.data.content) as unknown;
+  const records: EaReaderRecord[] = Array.isArray(payload)
+    ? payload.filter((record): record is EaReaderRecord => typeof record === "object" && record !== null)
+    : [];
+  const unique = new Map<string, EaClubSearchResult>();
+
+  for (const record of records) {
+    const info = record.clubInfo || {};
+    const clubId = toNullableString(info.clubId ?? record.clubId);
+    const clubName = toNullableString(info.name ?? record.clubName);
+    if (!clubId || !clubName || unique.has(clubId)) continue;
+
+    unique.set(clubId, {
+      clubId,
+      name: clubName,
+      regionId: toNullableString(info.regionId),
+      wins: toNullableNumber(record.wins),
+      draws: toNullableNumber(record.draws ?? record.ties),
+      losses: toNullableNumber(record.losses),
+    });
+  }
+
+  return [...unique.values()].slice(0, 50);
+}
+
+export async function searchEaClubsRequest(name: string) {
+  try {
+    const { data } = await api.get<EaClubSearchResult[]>("/championships/ea/clubs/search", {
+      params: { name },
+    });
+    return data;
+  } catch (error) {
+    if (!axios.isAxiosError(error) || error.response?.status !== 502) throw error;
+    return searchEaClubsThroughBrowser(name);
+  }
 }
 
 export async function createOwnTeamRequest(input: { name: string; eaClubId: string }) {
