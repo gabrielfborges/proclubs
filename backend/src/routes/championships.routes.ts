@@ -27,6 +27,8 @@ import {
   updateMatchScore,
   resetMatchScore,
   fetchMatchScoreFromEa,
+  fetchMatchPlayerStatsFromEa,
+  updateMatchPlayerStats,
   startMatch,
 } from "../controllers/match.controller";
 import {
@@ -35,6 +37,7 @@ import {
   postGenerateKnockout,
   postAdvanceKnockout,
 } from "../controllers/knockout.controller";
+import { getChampionshipStatistics } from "../controllers/statistics.controller";
 
 const router = Router();
 
@@ -73,11 +76,14 @@ router.get("/:championshipId/groups", listGroups);
 router.post("/:championshipId/groups/generate", requireAdmin, createGroups);
 router.post("/:championshipId/matches/generate", requireAdmin, createGroupMatches);
 router.get("/:championshipId/standings", getStandings);
+router.get("/:championshipId/statistics", getChampionshipStatistics);
 
 // --- Partidas ---
 router.get("/:championshipId/matches", listMatches);
 router.patch("/matches/:id/score", requireAdmin, updateMatchScore);
 router.post("/matches/:id/score/ea", requireAdmin, fetchMatchScoreFromEa);
+router.put("/matches/:id/player-stats", requireAdmin, updateMatchPlayerStats);
+router.post("/matches/:id/player-stats/ea", requireAdmin, fetchMatchPlayerStatsFromEa);
 router.post("/matches/:id/start", requireAdmin, startMatch);
 router.post("/matches/:id/reset", requireAdmin, resetMatchScore);
 

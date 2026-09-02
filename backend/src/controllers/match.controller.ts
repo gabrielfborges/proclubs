@@ -17,12 +17,60 @@ export const listMatches = asyncHandler(async (req: Request, res: Response) => {
       homeTeam: { include: { captainUser: { select: { id: true, username: true } } } },
       awayTeam: { include: { captainUser: { select: { id: true, username: true } } } },
       group: true,
+      playerStats: { include: { player: true }, orderBy: { player: { name: "asc" } } },
     },
     orderBy: [{ phase: "asc" }, { roundOrder: "asc" }],
   });
   res.json(matches);
 });
 
+const playerStatsSchema = z.object({
+  stats: z.array(z.object({
+    playerId: z.string().uuid(),
+    goals: z.number().int().min(0).max(99),
+    assists: z.number().int().min(0).max(99),
+  })).max(100),
+});
+
+async function getMatchWithTeams(id: string) {
+  const match = await prisma.match.findUnique({
+    where: { id },
+    include: { homeTeam: true, awayTeam: true },
+  });
+  if (!match) throw new AppError("Partida nao encontrada.", 404);
+  if (!match.homeTeam || !match.awayTeam) {
+    throw new AppError("Esta partida nao possui dois times definidos (bye).");
+  }
+  return match as typeof match & { homeTeam: NonNullable<typeof match.homeTeam>; awayTeam: NonNullable<typeof match.awayTeam> };
+}
+
+export const updateMatchPlayerStats = asyncHandler(async (req: Request, res: Response) => {
+  const data = playerStatsSchema.parse(req.body);
+  const match = await getMatchWithTeams(req.params.id);
+  const teamIds = [match.homeTeam.id, match.awayTeam.id];
+  const playerIds = data.stats.map((stat) => stat.playerId);
+  const players = await prisma.player.findMany({ where: { id: { in: playerIds }, teamId: { in: teamIds } } });
+  if (players.length !== new Set(playerIds).size) {
+    throw new AppError("Um ou mais jogadores nao pertencem aos times desta partida.", 400);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.matchPlayerStat.deleteMany({ where: { matchId: match.id, source: "MANUAL" } });
+    const manualStats = data.stats.filter((stat) => stat.goals > 0 || stat.assists > 0);
+    if (manualStats.length > 0) {
+      await tx.matchPlayerStat.createMany({
+        data: manualStats.map((stat) => ({ ...stat, matchId: match.id, source: "MANUAL" as const })),
+      });
+    }
+  });
+
+  const stats = await prisma.matchPlayerStat.findMany({
+    where: { matchId: match.id },
+    include: { player: true },
+    orderBy: { player: { name: "asc" } },
+  });
+  res.json(stats);
+});
 export const startMatch = asyncHandler(async (req: Request, res: Response) => {
   const match = await prisma.match.findUnique({
     where: { id: req.params.id },
@@ -49,6 +97,7 @@ export const startMatch = asyncHandler(async (req: Request, res: Response) => {
       homeTeam: { include: { captainUser: { select: { id: true, username: true } } } },
       awayTeam: { include: { captainUser: { select: { id: true, username: true } } } },
       group: true,
+      playerStats: { include: { player: true }, orderBy: { player: { name: "asc" } } },
     },
   });
 
@@ -143,6 +192,43 @@ export const fetchMatchScoreFromEa = asyncHandler(async (req: Request, res: Resp
   });
 
   res.json(updated);
+});
+export const fetchMatchPlayerStatsFromEa = asyncHandler(async (req: Request, res: Response) => {
+  const match = await getMatchWithTeams(req.params.id);
+  if (!match.homeTeam.eaClubId || !match.awayTeam.eaClubId) {
+    throw new AppError("Cadastre o EaClubId dos dois times antes de buscar as estatisticas.");
+  }
+
+  const result = await findLatestEaMatch(match.homeTeam.eaClubId, match.awayTeam.eaClubId);
+  const players = await prisma.player.findMany({
+    where: { teamId: { in: [match.homeTeam.id, match.awayTeam.id] } },
+  });
+  const byExternalId = new Map(players.filter((player) => player.externalId).map((player) => [player.externalId!, player]));
+  const matched = result.playerStats.flatMap((stat) => {
+    const player = (stat.externalId && byExternalId.get(stat.externalId)) ||
+      players.find((candidate) => candidate.name.toLocaleLowerCase() === stat.name.toLocaleLowerCase());
+    return player ? [{ playerId: player.id, goals: stat.goals, assists: stat.assists }] : [];
+  });
+
+  if (matched.length === 0) {
+    throw new AppError("A EA retornou o placar, mas nao foi possivel identificar os jogadores. Cadastre/sincronize os jogadores e lance os dados manualmente.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.matchPlayerStat.deleteMany({ where: { matchId: match.id, source: "EA" } });
+    for (const stat of matched) {
+      const existing = await tx.matchPlayerStat.findUnique({ where: { matchId_playerId: { matchId: match.id, playerId: stat.playerId } } });
+      if (existing?.source === "MANUAL") continue;
+      await tx.matchPlayerStat.upsert({
+        where: { matchId_playerId: { matchId: match.id, playerId: stat.playerId } },
+        create: { ...stat, matchId: match.id, source: "EA" },
+        update: { goals: stat.goals, assists: stat.assists, source: "EA" },
+      });
+    }
+  });
+
+  const stats = await prisma.matchPlayerStat.findMany({ where: { matchId: match.id }, include: { player: true }, orderBy: { player: { name: "asc" } } });
+  res.json(stats);
 });
 export const resetMatchScore = asyncHandler(async (req: Request, res: Response) => {
   const match = await prisma.match.findUnique({ where: { id: req.params.id } });

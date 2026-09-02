@@ -26,7 +26,7 @@ function serialize(c: any) {
 export const listChampionships = asyncHandler(async (req: Request, res: Response) => {
   const championships = await prisma.championship.findMany({
     include: {
-      teams: { include: { captainUser: { select: { id: true, username: true } } } },
+      teams: { include: { captainUser: { select: { id: true, username: true } }, players: true } },
       championTeam: true,
       _count: { select: { teams: true } },
     },
@@ -39,7 +39,7 @@ export const getChampionship = asyncHandler(async (req: Request, res: Response) 
   const championship = await prisma.championship.findUnique({
     where: { id: req.params.id },
     include: {
-      teams: { include: { captainUser: { select: { id: true, username: true } } } },
+      teams: { include: { captainUser: { select: { id: true, username: true } }, players: true } },
       championTeam: true,
       groups: {
         include: { teams: { include: { team: true } } },

@@ -10,6 +10,15 @@ export interface EaMatchResult {
   homeScore: number;
   awayScore: number;
   timestamp: number;
+  playerStats: EaMatchPlayerResult[];
+}
+
+export interface EaMatchPlayerResult {
+  name: string;
+  externalId: string | null;
+  clubId: string | null;
+  goals: number;
+  assists: number;
 }
 
 export interface EaPlayerResult {
@@ -124,6 +133,67 @@ function getScoreFromTopLevel(record: JsonObject, side: "home" | "away"): number
   );
 }
 
+function getPlayerRecordsFromContainer(value: unknown): JsonObject[] {
+  if (Array.isArray(value)) return value.filter(isObject);
+  if (!isObject(value)) return [];
+  return Object.entries(value).flatMap(([key, item]) => {
+    if (!isObject(item)) return [];
+    return [{ ...item, externalId: item.externalId ?? item.playerId ?? key }];
+  });
+}
+
+function getMatchPlayers(record: JsonObject): Array<{ record: JsonObject; clubId: string | null }> {
+  const containers: Array<{ value: unknown; clubId: string | null }> = [];
+  const recordClubId = getClubId(record);
+  for (const key of ["players", "playerStats", "playersStats", "members", "membersStats"]) {
+    if (record[key] !== undefined) containers.push({ value: record[key], clubId: recordClubId });
+  }
+  for (const club of getClubs(record)) {
+    const clubId = getClubId(club);
+    for (const key of ["players", "playerStats", "playersStats", "members", "membersStats"]) {
+      if (club[key] !== undefined) containers.push({ value: club[key], clubId });
+    }
+  }
+  return containers.flatMap(({ value, clubId }) =>
+    getPlayerRecordsFromContainer(value).map((player) => ({ record: player, clubId: getClubId(player) || clubId }))
+  );
+}
+
+function getPlayerNameFromMatch(record: JsonObject): string | null {
+  const value = firstValue(record, ["name", "playername", "playerName", "proName", "gamertag", "personaName"]);
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function getPlayerExternalIdFromMatch(record: JsonObject): string | null {
+  return asId(firstValue(record, ["externalId", "playerId", "playerID", "blazeId", "personaId"]));
+}
+
+function getPlayerStatNumber(record: JsonObject, keys: string[]): number {
+  const value = asNumber(firstValue(record, keys));
+  return value === null ? 0 : Math.max(0, Math.trunc(value));
+}
+
+function parsePlayerStats(record: JsonObject, homeClubId: string, awayClubId: string): EaMatchPlayerResult[] {
+  const unique = new Map<string, EaMatchPlayerResult>();
+  for (const { record: player, clubId } of getMatchPlayers(record)) {
+    if (clubId && clubId !== homeClubId && clubId !== awayClubId) continue;
+    const name = getPlayerNameFromMatch(player);
+    if (!name) continue;
+    const goals = getPlayerStatNumber(player, ["goals", "goalsScored", "goalCount"]);
+    const assists = getPlayerStatNumber(player, ["assists", "assistsMade", "assistCount"]);
+    if (goals === 0 && assists === 0) continue;
+    const externalId = getPlayerExternalIdFromMatch(player);
+    const key = externalId || `${clubId || "unknown"}:${name.toLocaleLowerCase()}`;
+    const current = unique.get(key);
+    if (current) {
+      current.goals += goals;
+      current.assists += assists;
+    } else {
+      unique.set(key, { name, externalId, clubId, goals, assists });
+    }
+  }
+  return [...unique.values()];
+}
 function parseMatch(
   record: JsonObject,
   homeClubId: string,
@@ -156,6 +226,7 @@ function parseMatch(
     homeScore: Math.max(0, Math.trunc(homeScore)),
     awayScore: Math.max(0, Math.trunc(awayScore)),
     timestamp: getTimestamp(record),
+      playerStats: parsePlayerStats(record, homeClubId, awayClubId),
   };
 }
 

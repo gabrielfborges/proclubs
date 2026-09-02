@@ -29,6 +29,11 @@ enum MatchStatus {
   PLAYED
 }
 
+enum MatchPlayerStatSource {
+  EA
+  MANUAL
+}
+
 enum ChampionshipApplicationStatus {
   PENDING
   APPROVED
@@ -161,6 +166,8 @@ model Match {
   startedAt         DateTime?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
+
+  playerStats MatchPlayerStat[]
 }
 model Player {
   id         String   @id @default(uuid())
@@ -172,7 +179,25 @@ model Player {
   isManual   Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  matchStats MatchPlayerStat[]
+
 
   @@unique([teamId, name])
   @@index([teamId])
+}
+model MatchPlayerStat {
+  id        String                @id @default(uuid())
+  matchId   String
+  playerId  String
+  goals     Int                   @default(0)
+  assists   Int                   @default(0)
+  source    MatchPlayerStatSource @default(MANUAL)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, playerId])
+  @@index([playerId])
 }

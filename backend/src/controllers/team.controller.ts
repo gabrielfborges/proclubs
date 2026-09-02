@@ -21,7 +21,7 @@ export const listTeams = asyncHandler(async (req: Request, res: Response) => {
   const teams = await prisma.team.findMany({
     where: { championshipId: req.params.championshipId },
     orderBy: { name: "asc" },
-    include: { captainUser: { select: { id: true, username: true } } },
+    include: { captainUser: { select: { id: true, username: true } }, players: true },
   });
   res.json(teams);
 });
@@ -130,7 +130,7 @@ export const createOwnTeam = asyncHandler(async (req: Request, res: Response) =>
       eaClubId: data.eaClubId,
       captainUserId,
     },
-    include: { captainUser: { select: { id: true, username: true } } },
+    include: { captainUser: { select: { id: true, username: true } }, players: true },
   });
   res.status(201).json(team);
 });
