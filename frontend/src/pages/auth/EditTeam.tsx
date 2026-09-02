@@ -90,7 +90,7 @@ export function EditTeam() {
     setError("");
     setMessage("");
     try {
-      const result = await syncTeamPlayersRequest(selectedTeam.id);
+      const result = await syncTeamPlayersRequest(selectedTeam.id, selectedTeam.eaClubId || eaClubId);
       setPlayers(result.players);
       setMessage(
         result.added +

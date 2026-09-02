@@ -9,6 +9,9 @@ const playerSchema = z.object({
   externalId: z.string().trim().max(200).optional().or(z.literal("")),
   position: z.string().trim().max(30).optional().or(z.literal("")),
 });
+const syncPlayersSchema = z.object({
+  players: z.array(playerSchema).max(200),
+});
 
 async function getAccessibleTeam(req: Request) {
   const team = await prisma.team.findUnique({ where: { id: req.params.id } });
@@ -60,47 +63,57 @@ export const deleteTeamPlayer = asyncHandler(async (req: Request, res: Response)
   res.status(204).send();
 });
 
+async function persistSyncedPlayers(teamId: string, remotePlayers: Array<{ name: string; externalId?: string | null; position?: string | null }>) {
+  let added = 0;
+  let updated = 0;
+
+  for (const remote of remotePlayers) {
+    const existing = await prisma.player.findUnique({
+      where: { teamId_name: { teamId, name: remote.name } },
+    });
+
+    if (!existing) {
+      await prisma.player.create({
+        data: {
+          teamId,
+          name: remote.name,
+          externalId: remote.externalId || null,
+          position: remote.position || null,
+          isManual: false,
+        },
+      });
+      added += 1;
+    } else if (!existing.isManual) {
+      await prisma.player.update({
+        where: { id: existing.id },
+        data: { externalId: remote.externalId || null, position: remote.position || null },
+      });
+      updated += 1;
+    }
+  }
+
+  const players = await prisma.player.findMany({
+    where: { teamId },
+    orderBy: [{ isManual: "asc" }, { name: "asc" }],
+  });
+  return { players, added, updated, remoteCount: remotePlayers.length };
+}
+
 export const syncTeamPlayers = asyncHandler(async (req: Request, res: Response) => {
   const team = await getAccessibleTeam(req);
   if (!team.eaClubId) throw new AppError("Cadastre um EaClubId antes de sincronizar os jogadores.", 400);
 
   try {
     const remotePlayers = await syncEaClubPlayers(team.eaClubId);
-    let added = 0;
-    let updated = 0;
-
-    for (const remote of remotePlayers) {
-      const existing = await prisma.player.findUnique({
-        where: { teamId_name: { teamId: team.id, name: remote.name } },
-      });
-
-      if (!existing) {
-        await prisma.player.create({
-          data: {
-            teamId: team.id,
-            name: remote.name,
-            externalId: remote.externalId,
-            position: remote.position,
-            isManual: false,
-          },
-        });
-        added += 1;
-      } else if (!existing.isManual) {
-        await prisma.player.update({
-          where: { id: existing.id },
-          data: { externalId: remote.externalId, position: remote.position },
-        });
-        updated += 1;
-      }
-    }
-
-    const players = await prisma.player.findMany({
-      where: { teamId: team.id },
-      orderBy: [{ isManual: "asc" }, { name: "asc" }],
-    });
-    res.json({ players, added, updated, remoteCount: remotePlayers.length });
+    res.json(await persistSyncedPlayers(team.id, remotePlayers));
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw new AppError("Nao foi possivel sincronizar os jogadores com a EA agora. Tente novamente mais tarde.", 502);
   }
+});
+
+export const syncTeamPlayersFromClient = asyncHandler(async (req: Request, res: Response) => {
+  const team = await getAccessibleTeam(req);
+  const { players } = syncPlayersSchema.parse(req.body);
+  res.json(await persistSyncedPlayers(team.id, players));
 });

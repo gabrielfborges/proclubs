@@ -146,6 +146,20 @@ type EaReaderRecord = {
     regionId?: unknown;
   };
 };
+type EaReaderMember = {
+  name?: unknown;
+  playername?: unknown;
+  playerName?: unknown;
+  proName?: unknown;
+  playerId?: unknown;
+  playerID?: unknown;
+  blazeId?: unknown;
+  personaId?: unknown;
+  proPos?: unknown;
+  position?: unknown;
+  favoritePosition?: unknown;
+  pos?: unknown;
+};
 
 function toNullableString(value: unknown): string | null {
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -202,6 +216,53 @@ async function searchEaClubsThroughBrowser(name: string): Promise<EaClubSearchRe
   return [...unique.values()].slice(0, 50);
 }
 
+async function fetchEaPlayersThroughBrowser(clubId: string): Promise<Array<{ name: string; externalId?: string; position?: string }>> {
+  const endpoints = ["members/career/stats", "members/stats"];
+  let lastError: unknown = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const targetUrl = new URL(`https://proclubs.ea.com/api/fc/${endpoint}`);
+      targetUrl.searchParams.set("platform", "common-gen5");
+      targetUrl.searchParams.set("clubId", clubId);
+      if (endpoint === "members/stats") targetUrl.searchParams.set("seasonId", "current");
+
+      const readerUrl = `https://r.jina.ai/http://${targetUrl.host}${targetUrl.pathname}${targetUrl.search}`;
+      const { data: envelope } = await axios.get<EaReaderEnvelope>(readerUrl, {
+        headers: { Accept: "application/json" },
+        timeout: 20_000,
+      });
+      if (typeof envelope.data?.content !== "string" || !envelope.data.content.trim()) {
+        throw new Error("Resposta vazia da consulta de jogadores da EA");
+      }
+
+      const payload = JSON.parse(envelope.data.content) as unknown;
+      const members =
+        typeof payload === "object" && payload !== null && Array.isArray((payload as { members?: unknown }).members)
+          ? (payload as { members: unknown[] }).members
+          : [];
+      const unique = new Map<string, { name: string; externalId?: string; position?: string }>();
+
+      for (const value of members) {
+        if (typeof value !== "object" || value === null) continue;
+        const member = value as EaReaderMember;
+        const name = toNullableString(member.name ?? member.playername ?? member.playerName ?? member.proName);
+        if (!name) continue;
+        const key = name.toLocaleLowerCase();
+        if (unique.has(key)) continue;
+        const externalId = toNullableString(member.playerId ?? member.playerID ?? member.blazeId ?? member.personaId);
+        const position = toNullableString(member.proPos ?? member.position ?? member.favoritePosition ?? member.pos);
+        unique.set(key, { name, ...(externalId ? { externalId } : {}), ...(position ? { position } : {}) });
+      }
+
+      return [...unique.values()];
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Não foi possível consultar os jogadores da EA");
+}
 export async function searchEaClubsRequest(name: string) {
   try {
     const { data } = await api.get<EaClubSearchResult[]>("/championships/ea/clubs/search", {
@@ -263,11 +324,21 @@ export async function fetchTeamPlayersRequest(teamId: string) {
   return data;
 }
 
-export async function syncTeamPlayersRequest(teamId: string) {
-  const { data } = await api.post<{ players: Player[]; added: number; updated: number; remoteCount: number }>(
-    "/championships/teams/" + teamId + "/players/sync"
-  );
-  return data;
+export async function syncTeamPlayersRequest(teamId: string, eaClubId?: string | null) {
+  try {
+    const { data } = await api.post<{ players: Player[]; added: number; updated: number; remoteCount: number }>(
+      "/championships/teams/" + teamId + "/players/sync"
+    );
+    return data;
+  } catch (error) {
+    if (!axios.isAxiosError(error) || error.response?.status !== 502 || !eaClubId) throw error;
+    const remotePlayers = await fetchEaPlayersThroughBrowser(eaClubId);
+    const { data } = await api.post<{ players: Player[]; added: number; updated: number; remoteCount: number }>(
+      "/championships/teams/" + teamId + "/players/sync-client",
+      { players: remotePlayers }
+    );
+    return data;
+  }
 }
 
 export async function createTeamPlayerRequest(teamId: string, input: { name: string; position?: string; externalId?: string }) {

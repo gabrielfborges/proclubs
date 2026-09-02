@@ -9,7 +9,7 @@ import {
 } from "../controllers/championship.controller";
 import { createOwnTeam, listOwnTeams, listTeams, createTeam, updateTeam, updateOwnTeam, deleteTeam } from "../controllers/team.controller";
 import { searchEaClubs } from "../controllers/ea.controller";
-import { createTeamPlayer, deleteTeamPlayer, listTeamPlayers, syncTeamPlayers } from "../controllers/player.controller";
+import { createTeamPlayer, deleteTeamPlayer, listTeamPlayers, syncTeamPlayers, syncTeamPlayersFromClient } from "../controllers/player.controller";
 import {
   listMyApplications,
   listChampionshipApplications,
@@ -61,6 +61,7 @@ router.post("/teams/self", requireAuth, createOwnTeam);
 router.patch("/teams/:id/self", requireAuth, updateOwnTeam);
 router.get("/teams/:id/players", requireAuth, listTeamPlayers);
 router.post("/teams/:id/players/sync", requireAuth, syncTeamPlayers);
+router.post("/teams/:id/players/sync-client", requireAuth, syncTeamPlayersFromClient);
 router.post("/teams/:id/players", requireAuth, createTeamPlayer);
 router.delete("/teams/:id/players/:playerId", requireAuth, deleteTeamPlayer);
 router.get("/:championshipId/teams", listTeams);
