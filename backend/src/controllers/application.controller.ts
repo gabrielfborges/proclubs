@@ -95,6 +95,7 @@ export const reviewChampionshipApplication = asyncHandler(async (req: Request, r
   if (application.status !== "PENDING") throw new AppError("Esta solicitacao ja foi analisada.");
 
   const updated = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "Championship" WHERE "id" = ${application.championshipId} FOR UPDATE`;
     if (status === "REJECTED") {
       return tx.championshipApplication.update({
         where: { id: applicationId },

@@ -147,3 +147,7 @@ Na tela de gerenciamento, o botao **Comecar partida** cria um canal de texto pri
 ### Times independentes criados por usuarios
 
 Usuarios autenticados podem usar a aba **Criar time** para buscar o clube na EA pelo nome, confirmar o `EaClubId` e criar um time independente. O time fica vinculado ao usuario criador como capitao e nao e inscrito automaticamente em nenhum campeonato. A inscricao em campeonatos e feita separadamente.
+
+## Segurança operacional atualizada
+
+O backend limita tentativas de login e cadastro, limita o JSON recebido a 1 MB e exige JWT_SECRET em produção. TRUST_PROXY deve permanecer false salvo quando a aplicação estiver atrás de um proxy reverso confiável. Em múltiplas instâncias, substitua o limitador em memória por Redis ou pelo gateway.

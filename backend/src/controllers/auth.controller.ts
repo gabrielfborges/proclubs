@@ -22,7 +22,7 @@ const registrationSchema = z.object({
     .max(30, "O usuario deve ter no maximo 30 caracteres.")
     .regex(/^[a-zA-Z0-9_.-]+$/, "O usuario possui caracteres invalidos."),
   email: z.string().trim().email("Informe um email valido."),
-  password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres."),
+  password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres."),
 });
 
 const profileUpdateSchema = z.object({

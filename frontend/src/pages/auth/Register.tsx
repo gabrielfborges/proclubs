@@ -76,7 +76,7 @@ export function Register() {
               className="input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              minLength={6}
+              minLength={8}
               autoComplete="new-password"
               required
             />
@@ -89,7 +89,7 @@ export function Register() {
               className="input"
               value={passwordConfirmation}
               onChange={(e) => setPasswordConfirmation(e.target.value)}
-              minLength={6}
+              minLength={8}
               autoComplete="new-password"
               required
             />

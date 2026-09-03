@@ -11,6 +11,8 @@ const EA_REQUEST_HEADERS = {
   "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0",
 };
 const EA_READER_PROXY_BASE_URL = process.env.EA_READER_PROXY_BASE_URL || "https://r.jina.ai/http://";
+type EaMatchLookupOptions = { scheduledAt?: Date; windowMs?: number };
+const DEFAULT_EA_MATCH_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 type EaReaderResponse = {
   data?: {
@@ -283,10 +285,7 @@ async function fetchMatchType(
   return response.json();
 }
 
-export async function findLatestEaMatch(
-  homeClubId: string,
-  awayClubId: string
-): Promise<EaMatchResult> {
+export async function findLatestEaMatch(homeClubId: string, awayClubId: string, options: EaMatchLookupOptions = {}): Promise<EaMatchResult> {
   const responses = await Promise.allSettled(
     MATCH_TYPES.map((matchType) => fetchMatchType(homeClubId, matchType))
   );
@@ -301,19 +300,16 @@ export async function findLatestEaMatch(
   }
 
   results.sort((a, b) => b.timestamp - a.timestamp);
-  if (!results[0]) {
+  const candidates = filterResultsBySchedule(results, options)
+  if (!candidates[0]) {
     throw new AppError(
       "Nao foi encontrado um resultado recente entre esses dois clubes na API da EA. Confira os EaClubIds e se a partida ja foi registrada no jogo."
     );
   }
-  return results[0];
+  return candidates[0];
 }
 
-export function findLatestEaMatchFromPayloads(
-  homeClubId: string,
-  awayClubId: string,
-  payloads: unknown[]
-): EaMatchResult {
+export function findLatestEaMatchFromPayloads(homeClubId: string, awayClubId: string, payloads: unknown[], options: EaMatchLookupOptions = {}): EaMatchResult {
   const results: EaMatchResult[] = [];
 
   for (const payload of payloads) {
@@ -324,12 +320,13 @@ export function findLatestEaMatchFromPayloads(
   }
 
   results.sort((a, b) => b.timestamp - a.timestamp);
-  if (!results[0]) {
+  const candidates = filterResultsBySchedule(results, options)
+  if (!candidates[0]) {
     throw new AppError(
       "Nao foi encontrado um resultado recente entre esses dois clubes na API da EA. Confira os EaClubIds e se a partida ja foi registrada no jogo."
     );
   }
-  return results[0];
+  return candidates[0];
 }
 
 function getSearchRecords(payload: unknown): JsonObject[] {
@@ -515,4 +512,9 @@ export async function syncEaClubPlayers(clubId: string): Promise<EaPlayerResult[
     });
   }
   return [...unique.values()];
+}
+function filterResultsBySchedule(results: EaMatchResult[], options: EaMatchLookupOptions): EaMatchResult[] {
+  if (!options.scheduledAt) return results
+  const windowMs = options.windowMs ?? DEFAULT_EA_MATCH_WINDOW_MS
+  return results.filter((result) => result.timestamp > 0 && Math.abs(result.timestamp * 1000 - options.scheduledAt!.getTime()) <= windowMs)
 }

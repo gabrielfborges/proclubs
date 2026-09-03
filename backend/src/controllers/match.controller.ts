@@ -241,7 +241,7 @@ export const fetchMatchScoreFromEa = asyncHandler(async (req: Request, res: Resp
     throw new AppError("Cadastre o EaClubId dos dois times antes de buscar o resultado.");
   }
 
-  const result = await findLatestEaMatch(match.homeTeam.eaClubId, match.awayTeam.eaClubId);
+  const result = await findLatestEaMatch(match.homeTeam.eaClubId, match.awayTeam.eaClubId, { scheduledAt: match.startedAt ?? match.createdAt });
   if (match.phase === "KNOCKOUT" && result.homeScore === result.awayScore) {
     throw new AppError(
       "A API da EA retornou empate. Informe os penaltis manualmente para concluir o mata-mata."
@@ -274,7 +274,7 @@ export const fetchMatchPlayerStatsFromEa = asyncHandler(async (req: Request, res
     throw new AppError("Cadastre o EaClubId dos dois times antes de buscar as estatisticas.");
   }
 
-  const result = await findLatestEaMatch(match.homeTeam.eaClubId, match.awayTeam.eaClubId);
+  const result = await findLatestEaMatch(match.homeTeam.eaClubId, match.awayTeam.eaClubId, { scheduledAt: match.startedAt ?? match.createdAt });
   const players = await prisma.player.findMany({
     where: { teamId: { in: [match.homeTeam.id, match.awayTeam.id] } },
   });
@@ -323,7 +323,8 @@ export const fetchMatchScoreFromEaClient = asyncHandler(async (req: Request, res
   const result = findLatestEaMatchFromPayloads(
     match.homeTeam.eaClubId,
     match.awayTeam.eaClubId,
-    payloads
+    payloads,
+    { scheduledAt: match.startedAt ?? match.createdAt }
   );
   if (match.phase === "KNOCKOUT" && result.homeScore === result.awayScore) {
     throw new AppError(
@@ -362,7 +363,8 @@ export const fetchMatchPlayerStatsFromEaClient = asyncHandler(async (req: Reques
   const result = findLatestEaMatchFromPayloads(
     match.homeTeam.eaClubId,
     match.awayTeam.eaClubId,
-    payloads
+    payloads,
+    { scheduledAt: match.startedAt ?? match.createdAt }
   );
   const players = await prisma.player.findMany({
     where: { teamId: { in: [match.homeTeam.id, match.awayTeam.id] } },
