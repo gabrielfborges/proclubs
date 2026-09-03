@@ -8,6 +8,7 @@ import {
   fetchChampionshipStatistics,
   fetchMyChampionshipMatchesRequest,
   markMatchReadyRequest,
+  openMatchDisputeRequest,
   fetchMyApplicationsRequest,
   fetchMyTeamsRequest,
   requestChampionshipApplicationRequest,
@@ -321,6 +322,29 @@ function UpcomingMatchCard({
   const myTeamReady = Boolean(match.myTeamId && match.readyTeamIds?.includes(match.myTeamId));
   const homeReady = Boolean(match.homeTeamId && match.readyTeamIds?.includes(match.homeTeamId));
   const awayReady = Boolean(match.awayTeamId && match.readyTeamIds?.includes(match.awayTeamId));
+  const [showDispute, setShowDispute] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputeSending, setDisputeSending] = useState(false);
+  const [disputeMessage, setDisputeMessage] = useState("");
+  const [disputeError, setDisputeError] = useState("");
+
+  async function submitDispute(event: FormEvent) {
+    event.preventDefault();
+    if (!disputeReason.trim()) return;
+    setDisputeSending(true);
+    setDisputeError("");
+    setDisputeMessage("");
+    try {
+      await openMatchDisputeRequest(match.id, disputeReason.trim());
+      setDisputeReason("");
+      setShowDispute(false);
+      setDisputeMessage("Disputa enviada para an�lise do administrador.");
+    } catch (err) {
+      setDisputeError(getApiErrorMessage(err));
+    } finally {
+      setDisputeSending(false);
+    }
+  }
 
   return (
     <div className="rounded-lg border border-base-700 bg-base-900/60 p-3 sm:p-4">
@@ -338,9 +362,23 @@ function UpcomingMatchCard({
             <span className={awayReady ? "text-accent-400" : "text-slate-600"}>{awayReady ? "Fora pronto" : "Fora aguardando"}</span>
           </div>
         </div>
-        <button type="button" className={myTeamReady ? "btn-secondary shrink-0" : "btn-primary shrink-0"} onClick={onReady} disabled={loading || myTeamReady}>
-          {loading ? "Confirmando..." : myTeamReady ? "Seu time está pronto" : "Estou pronto"}
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" className={myTeamReady ? "btn-secondary shrink-0" : "btn-primary shrink-0"} onClick={onReady} disabled={loading || myTeamReady}>
+            {loading ? "Confirmando..." : myTeamReady ? "Seu time est� pronto" : "Estou pronto"}
+          </button>
+          <button type="button" className="btn-secondary shrink-0" onClick={() => { setShowDispute((current) => !current); setDisputeError(""); }}>
+            {showDispute ? "Fechar disputa" : "Abrir disputa"}
+          </button>
+      {showDispute && (
+        <form onSubmit={submitDispute} className="mt-3 space-y-2 border-t border-base-700 pt-3">
+          <label className="label" htmlFor={"dispute-" + match.id}>Descreva o problema</label>
+          <textarea id={"dispute-" + match.id} className="input min-h-24 resize-y" value={disputeReason} onChange={(event) => setDisputeReason(event.target.value)} minLength={10} maxLength={1000} placeholder="Informe o que aconteceu nesta partida." disabled={disputeSending} />
+          <div className="flex justify-end"><button type="submit" className="btn-primary" disabled={disputeSending || disputeReason.trim().length < 10}>{disputeSending ? "Enviando..." : "Enviar disputa"}</button></div>
+        </form>
+      )}
+      {disputeMessage && <p className="mt-2 text-xs text-emerald-300">{disputeMessage}</p>}
+      {disputeError && <p className="mt-2 text-xs text-red-300">{disputeError}</p>}
+        </div>
       </div>
     </div>
   );

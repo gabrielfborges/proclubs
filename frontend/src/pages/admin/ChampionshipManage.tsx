@@ -12,6 +12,9 @@ import {
   fetchMatches,
   updateMatchScoreRequest,
   scheduleMatchRequest,
+  forfeitMatchRequest,
+  fetchChampionshipDisputesRequest,
+  resolveMatchDisputeRequest,
   fetchMatchScoreFromEaRequest,
   fetchMatchPlayerStatsFromEaRequest,
   updateMatchPlayerStatsRequest,
@@ -24,19 +27,20 @@ import {
   fetchChampionshipApplicationsRequest,
   reviewChampionshipApplicationRequest,
 } from "../../api/championships";
-import { Championship, ChampionshipApplication, Group, Match, Team, User, Player } from "../../types";
+import { Championship, ChampionshipApplication, Group, Match, MatchDispute, Team, User, Player } from "../../types";
 import { Loading, ErrorBox } from "../../components/Loading";
 import { StatusBadge } from "../../components/StatusBadge";
 import { BracketView } from "../../components/BracketView";
 import { getApiErrorMessage } from "../../api/client";
 
-type TabKey = "teams" | "applications" | "groups" | "knockout" | "stats";
+type TabKey = "teams" | "applications" | "groups" | "knockout" | "stats" | "disputes";
 
 export function ChampionshipManage() {
   const { id } = useParams<{ id: string }>();
   const [championship, setChampionship] = useState<Championship | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [applications, setApplications] = useState<ChampionshipApplication[]>([]);
+  const [disputes, setDisputes] = useState<MatchDispute[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupMatches, setGroupMatches] = useState<Match[]>([]);
@@ -52,7 +56,7 @@ export function ChampionshipManage() {
     if (!id) return;
     setLoading(true);
     try {
-      const [champ, teamList, applicationList, userList, groupList, matches, knockout, readiness] = await Promise.all([
+      const [champ, teamList, applicationList, userList, groupList, matches, knockout, readiness, disputeList] = await Promise.all([
         fetchChampionship(id),
         fetchTeams(id),
         fetchChampionshipApplicationsRequest(id),
@@ -61,6 +65,7 @@ export function ChampionshipManage() {
         fetchMatches(id, "GROUP"),
         fetchKnockoutBracket(id),
         fetchKnockoutReadiness(id),
+        fetchChampionshipDisputesRequest(id),
       ]);
       setChampionship(champ);
       setTeams(teamList);
@@ -70,6 +75,7 @@ export function ChampionshipManage() {
       setGroupMatches(matches);
       setKnockoutMatches(knockout);
       setKnockoutReady(readiness.ready);
+      setDisputes(disputeList);
       setError("");
     } catch (err) {
       setError(getApiErrorMessage(err));
@@ -105,6 +111,7 @@ export function ChampionshipManage() {
     { key: "groups", label: "Grupos & Partidas" },
     { key: "knockout", label: "Mata-mata" },
     { key: "stats", label: "Artilharia" },
+    { key: "disputes", label: "Disputas" },
   ];
 
   return (
@@ -176,6 +183,7 @@ export function ChampionshipManage() {
             runAction(() => updateMatchScoreRequest(matchId, { homeScore, awayScore }))
           }
           onSchedule={(matchId, scheduledAt) => runAction(() => scheduleMatchRequest(matchId, scheduledAt))}
+          onForfeit={(matchId, winnerTeamId, reason) => runAction(() => forfeitMatchRequest(matchId, winnerTeamId, reason))}
           onFetchScore={(match) =>
             runAction(() =>
               fetchMatchScoreFromEaRequest(match.id, match.homeTeam?.eaClubId, match.awayTeam?.eaClubId)
@@ -183,6 +191,16 @@ export function ChampionshipManage() {
           }
           onResetScore={(matchId) => runAction(() => resetMatchScoreRequest(matchId))}
           onStartChat={(matchId) => runAction(() => startMatchRequest(matchId))}
+        />
+      )}
+
+      {tab === "disputes" && (
+        <DisputesPanel
+          disputes={disputes}
+          disabled={actionLoading}
+          onResolve={(disputeId, status, resolutionNote) =>
+            runAction(() => resolveMatchDisputeRequest(disputeId, status, resolutionNote))
+          }
         />
       )}
 
@@ -213,6 +231,7 @@ export function ChampionshipManage() {
             )
           }
           onSchedule={(matchId, scheduledAt) => runAction(() => scheduleMatchRequest(matchId, scheduledAt))}
+          onForfeit={(matchId, winnerTeamId, reason) => runAction(() => forfeitMatchRequest(matchId, winnerTeamId, reason))}
           onFetchScore={(match) =>
             runAction(() =>
               fetchMatchScoreFromEaRequest(match.id, match.homeTeam?.eaClubId, match.awayTeam?.eaClubId)
@@ -221,6 +240,63 @@ export function ChampionshipManage() {
           onResetScore={(matchId) => runAction(() => resetMatchScoreRequest(matchId))}
           onStartChat={(matchId) => runAction(() => startMatchRequest(matchId))}
         />
+      )}
+    </div>
+  );
+}
+
+
+
+function DisputesPanel({
+  disputes,
+  disabled,
+  onResolve,
+}: {
+  disputes: MatchDispute[];
+  disabled: boolean;
+  onResolve: (disputeId: string, status: "RESOLVED" | "REJECTED", resolutionNote?: string) => void;
+}) {
+  const openDisputes = disputes.filter((dispute) => dispute.status === "OPEN");
+
+  return (
+    <div className="space-y-4">
+      <div className="card p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-accent-400">Revisao administrativa</p>
+        <h2 className="mt-1 text-lg font-semibold text-slate-100">Disputas das partidas</h2>
+        <p className="mt-1 text-sm text-slate-400">Analise o motivo informado pelo capit�o e registre a decis�o.</p>
+      </div>
+
+      {openDisputes.length === 0 ? (
+        <div className="card px-4 py-8 text-center text-sm text-slate-500">Nenhuma disputa pendente.</div>
+      ) : (
+        <div className="space-y-3">
+          {openDisputes.map((dispute) => {
+            const home = dispute.match?.homeTeam?.name || "Casa";
+            const away = dispute.match?.awayTeam?.name || "Fora";
+            return (
+              <div key={dispute.id} className="card space-y-3 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-slate-100">{home} x {away}</p>
+                    <p className="text-xs text-slate-500">Aberta pelo time {dispute.team?.name || "nao identificado"}</p>
+                  </div>
+                  <span className="rounded-full bg-amber-500/15 px-2 py-1 text-xs font-semibold text-amber-300">Pendente</span>
+                </div>
+                <p className="rounded-lg border border-base-700 bg-base-900/60 p-3 text-sm text-slate-300">{dispute.reason}</p>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button type="button" className="btn-secondary !px-3 !py-2 text-xs" disabled={disabled} onClick={() => {
+                    const note = window.prompt("Observa��o da rejei��o (opcional):") || undefined;
+                    onResolve(dispute.id, "REJECTED", note);
+                  }}>Rejeitar</button>
+                  <button type="button" className="btn-primary !px-3 !py-2 text-xs" disabled={disabled} onClick={() => {
+                    const note = window.prompt("Observa��o da resolu��o (opcional):") || undefined;
+                    onResolve(dispute.id, "RESOLVED", note);
+                  }}>Resolver</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -437,6 +513,7 @@ function GroupsPanel({
   onFetchScore,
   onStartChat,
   onSchedule,
+  onForfeit,
 }: {
   championship: Championship;
   groups: Group[];
@@ -449,6 +526,7 @@ function GroupsPanel({
   onFetchScore: (match: Match) => void;
   onStartChat: (matchId: string) => void;
   onSchedule: (matchId: string, scheduledAt: string | null) => void;
+  onForfeit: (matchId: string, winnerTeamId: string, reason: string) => void;
 }) {
   const [groupFilter, setGroupFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "PLAYED">("ALL");
@@ -601,6 +679,7 @@ function GroupsPanel({
                   onFetchScore={() => onFetchScore(match)}
                     onStartChat={() => onStartChat(match.id)}
                   onSchedule={(matchId, scheduledAt) => onSchedule(matchId, scheduledAt)}
+                  onForfeit={(matchId, winnerTeamId, reason) => onForfeit(matchId, winnerTeamId, reason)}
                 />
               ))}
             </div>
@@ -636,6 +715,7 @@ function KnockoutPanel({
   onFetchScore,
   onStartChat,
   onSchedule,
+  onForfeit,
 }: {
   championship: Championship;
   matches: Match[];
@@ -654,6 +734,7 @@ function KnockoutPanel({
   onFetchScore: (match: Match) => void;
   onStartChat: (matchId: string) => void;
   onSchedule: (matchId: string, scheduledAt: string | null) => void;
+  onForfeit: (matchId: string, winnerTeamId: string, reason: string) => void;
 }) {
   const [roundFilter, setRoundFilter] = useState("CURRENT");
   const lastRound = matches.length > 0 ? matches[matches.length - 1].round : null;
@@ -768,6 +849,7 @@ function KnockoutPanel({
                     onFetchScore={() => onFetchScore(match)}
                     onStartChat={() => onStartChat(match.id)}
                     onSchedule={(matchId, scheduledAt) => onSchedule(matchId, scheduledAt)}
+                    onForfeit={(matchId, winnerTeamId, reason) => onForfeit(matchId, winnerTeamId, reason)}
                   />
                 ))}
             </div>
@@ -818,6 +900,7 @@ function MatchScoreRow({
   onFetchScore,
   onStartChat,
   onSchedule,
+  onForfeit,
 }: {
   match: Match;
   matchNumber: number;
@@ -828,6 +911,7 @@ function MatchScoreRow({
   onFetchScore?: () => void;
   onStartChat?: () => void;
   onSchedule: (matchId: string, scheduledAt: string | null) => void;
+  onForfeit: (matchId: string, winnerTeamId: string, reason: string) => void;
 }) {
   const [home, setHome] = useState(match.homeScore == null ? "" : String(match.homeScore));
   const [away, setAway] = useState(match.awayScore == null ? "" : String(match.awayScore));
@@ -986,6 +1070,18 @@ function MatchScoreRow({
               <span className={match.readyTeamIds?.includes(match.awayTeamId) ? "text-accent-400" : "text-slate-600"}>
                 {match.readyTeamIds?.includes(match.awayTeamId) ? "Fora pronto" : "Fora aguardando"}
               </span>
+            </div>
+          )}
+          {match.status === "SCHEDULED" && match.homeTeamId && match.awayTeamId && (
+            <div className="flex w-full justify-end gap-2">
+              <button type="button" className="btn-secondary !px-3 !py-2 text-xs" disabled={disabled} onClick={() => {
+                const reason = window.prompt("Motivo do W.O. para " + (match.homeTeam?.name || "o time da casa"));
+                if (reason && reason.trim()) onForfeit(match.id, match.awayTeamId!, reason.trim());
+              }}>W.O. casa</button>
+              <button type="button" className="btn-secondary !px-3 !py-2 text-xs" disabled={disabled} onClick={() => {
+                const reason = window.prompt("Motivo do W.O. para " + (match.awayTeam?.name || "o time visitante"));
+                if (reason && reason.trim()) onForfeit(match.id, match.homeTeamId!, reason.trim());
+              }}>W.O. fora</button>
             </div>
           )}
           {match.discordChannelUrl ? (

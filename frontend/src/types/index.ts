@@ -121,6 +121,7 @@ export interface MatchDispute {
   team?: Team;
   openedByUser?: Pick<User, "id" | "username">;
   resolvedByUser?: Pick<User, "id" | "username"> | null;
+  match?: Pick<Match, "id" | "homeTeam" | "awayTeam">;
 }
 
 export interface Match {

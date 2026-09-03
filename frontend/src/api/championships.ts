@@ -102,6 +102,11 @@ export async function fetchMatchDisputesRequest(matchId: string) {
   return data;
 }
 
+export async function fetchChampionshipDisputesRequest(championshipId: string) {
+  const { data } = await api.get<import("../types").MatchDispute[]>("/championships/" + championshipId + "/disputes");
+  return data;
+}
+
 export async function openMatchDisputeRequest(matchId: string, reason: string) {
   const { data } = await api.post<import("../types").MatchDispute>("/championships/matches/" + matchId + "/disputes", { reason });
   return data;

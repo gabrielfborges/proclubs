@@ -37,6 +37,7 @@ import {
   scheduleMatch,
   forfeitMatch,
   listMatchDisputes,
+  listChampionshipDisputes,
   openMatchDispute,
   resolveMatchDispute,
 } from "../controllers/match.controller";
@@ -87,6 +88,7 @@ router.post("/:championshipId/groups/generate", requireAdmin, createGroups);
 router.post("/:championshipId/matches/generate", requireAdmin, createGroupMatches);
 router.get("/:championshipId/standings", getStandings);
 router.get("/:championshipId/statistics", getChampionshipStatistics);
+router.get("/:championshipId/disputes", requireAdmin, listChampionshipDisputes);
 
 // --- Partidas ---
 router.get("/:championshipId/matches", listMatches);

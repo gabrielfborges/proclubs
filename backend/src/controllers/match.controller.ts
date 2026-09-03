@@ -183,6 +183,20 @@ export const listMatchDisputes = asyncHandler(async (req: Request, res: Response
   res.json(disputes);
 });
 
+export const listChampionshipDisputes = asyncHandler(async (req: Request, res: Response) => {
+  const disputes = await prisma.matchDispute.findMany({
+    where: { match: { championshipId: req.params.championshipId } },
+    include: {
+      team: true,
+      match: { include: { homeTeam: true, awayTeam: true } },
+      openedByUser: { select: { id: true, username: true } },
+      resolvedByUser: { select: { id: true, username: true } },
+    },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+  });
+  res.json(disputes);
+});
+
 export const openMatchDispute = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.id;
   if (!userId) throw new AppError("Usuario nao autenticado.", 401);
