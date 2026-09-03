@@ -40,6 +40,32 @@ async function fetchEaThroughReader(url: URL): Promise<Response> {
   });
 }
 
+async function fetchEaJson(url: URL, timeoutMs = 15_000): Promise<unknown> {
+  let directFailure = "";
+
+  try {
+    const response = await fetch(url, {
+      headers: EA_REQUEST_HEADERS,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+
+    if (response.ok) return response.json();
+
+    directFailure = `EA API returned ${response.status}`;
+  } catch (error) {
+    directFailure = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  }
+
+  try {
+    const fallbackResponse = await fetchEaThroughReader(url);
+    return fallbackResponse.json();
+  } catch (fallbackError) {
+    const fallbackMessage =
+      fallbackError instanceof Error ? `${fallbackError.name}: ${fallbackError.message}` : String(fallbackError);
+    throw new Error(`EA request failed (${directFailure}); fallback failed (${fallbackMessage})`);
+  }
+}
+
 type JsonObject = { [key: string]: unknown };
 
 export interface EaMatchResult {
@@ -276,13 +302,7 @@ async function fetchMatchType(
   url.searchParams.set("matchType", matchType);
   url.searchParams.set("maxResultCount", "10");
 
-  const response = await fetch(url, {
-    headers: EA_REQUEST_HEADERS,
-    signal: AbortSignal.timeout(15_000),
-  });
-
-  if (!response.ok) throw new Error(`EA API returned ${response.status}`);
-  return response.json();
+  return fetchEaJson(url);
 }
 
 export async function findLatestEaMatch(homeClubId: string, awayClubId: string, options: EaMatchLookupOptions = {}): Promise<EaMatchResult> {
@@ -358,7 +378,7 @@ function getOptionalNumber(record: JsonObject, keys: string[]): number | null {
 
 export async function searchEaClubs(clubName: string): Promise<EaClubSearchResult[]> {
   const searchPaths = ["allTimeLeaderboard/search", "currentSeasonLeaderboard/search"];
-  let response: Response | null = null;
+  let payload: unknown = null;
   const failures: Array<Record<string, unknown>> = [];
 
   for (const searchPath of searchPaths) {
@@ -368,42 +388,8 @@ export async function searchEaClubs(clubName: string): Promise<EaClubSearchResul
     url.searchParams.set("maxResultCount", "50");
 
     try {
-      let candidate = await fetch(url, {
-        headers: EA_REQUEST_HEADERS,
-        signal: AbortSignal.timeout(15_000),
-      });
-
-      if (!candidate.ok) {
-        const responseBody = await candidate.text().catch(() => "");
-        failures.push({
-          endpoint: searchPath,
-          status: candidate.status,
-          statusText: candidate.statusText,
-          response: responseBody.slice(0, 500),
-        });
-
-        if (candidate.status === 403) {
-          try {
-            candidate = await fetchEaThroughReader(url);
-            console.warn("[EA_SEARCH_FALLBACK] Busca realizada pelo fallback da EA", {
-              endpoint: searchPath,
-            });
-          } catch (fallbackError) {
-            failures.push({
-              endpoint: `${searchPath} via fallback`,
-              error:
-                fallbackError instanceof Error
-                  ? `${fallbackError.name}: ${fallbackError.message}`
-                  : String(fallbackError),
-            });
-          }
-        }
-      }
-
-      if (candidate.ok) {
-        response = candidate;
-        break;
-      }
+      payload = await fetchEaJson(url);
+      break;
     } catch (error) {
       failures.push({
         endpoint: searchPath,
@@ -412,27 +398,13 @@ export async function searchEaClubs(clubName: string): Promise<EaClubSearchResul
     }
   }
 
-  if (!response) {
+  if (payload === null) {
     console.error("[EA_SEARCH_FAILED] A busca de clubes falhou em todos os endpoints", {
       clubName,
       platform: EA_PLATFORM,
       failures,
     });
     throw new AppError("A busca de clubes da EA esta indisponivel no momento. Tente novamente mais tarde.", 502);
-  }
-
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch (error) {
-    console.error("[EA_SEARCH_INVALID_RESPONSE] A EA retornou um JSON invalido", {
-      clubName,
-      platform: EA_PLATFORM,
-      endpoint: response.url,
-      status: response.status,
-      error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
-    });
-    throw new AppError("A EA retornou uma resposta invalida para a busca do clube.", 502);
   }
 
   const unique = new Map<string, EaClubSearchResult>();
@@ -483,12 +455,7 @@ async function fetchMembersEndpoint(
   url.searchParams.set("clubId", clubId);
   if (endpoint === "members/stats") url.searchParams.set("seasonId", "current");
 
-  const response = await fetch(url, {
-    headers: EA_REQUEST_HEADERS,
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!response.ok) throw new Error("EA API returned " + response.status);
-  return response.json();
+  return fetchEaJson(url);
 }
 
 export async function syncEaClubPlayers(clubId: string): Promise<EaPlayerResult[]> {

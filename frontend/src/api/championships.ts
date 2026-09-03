@@ -287,7 +287,13 @@ async function searchEaClubsThroughBrowser(name: string): Promise<EaClubSearchRe
   const payload = JSON.parse(envelope.data.content) as unknown;
   const records: EaReaderRecord[] = Array.isArray(payload)
     ? payload.filter((record): record is EaReaderRecord => typeof record === "object" && record !== null)
-    : [];
+    : typeof payload === "object" && payload !== null
+      ? Object.entries(payload).flatMap(([key, value]) => {
+          if (typeof value !== "object" || value === null || Array.isArray(value)) return [];
+          const record = value as EaReaderRecord;
+          return [{ ...record, clubId: record.clubId ?? key }];
+        })
+      : [];
   const unique = new Map<string, EaClubSearchResult>();
 
   for (const record of records) {
@@ -331,8 +337,13 @@ async function fetchEaPlayersThroughBrowser(clubId: string): Promise<Array<{ nam
 
       const payload = JSON.parse(envelope.data.content) as unknown;
       const members =
-        typeof payload === "object" && payload !== null && Array.isArray((payload as { members?: unknown }).members)
-          ? (payload as { members: unknown[] }).members
+        typeof payload === "object" && payload !== null && (payload as { members?: unknown }).members !== undefined
+          ? Array.isArray((payload as { members?: unknown }).members)
+            ? (payload as { members: unknown[] }).members
+            : typeof (payload as { members?: unknown }).members === "object" &&
+                (payload as { members?: unknown }).members !== null
+              ? Object.values((payload as { members: Record<string, unknown> }).members)
+              : []
           : [];
       const unique = new Map<string, { name: string; externalId?: string; position?: string }>();
 

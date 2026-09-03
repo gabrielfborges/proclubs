@@ -63,40 +63,73 @@ export const deleteTeamPlayer = asyncHandler(async (req: Request, res: Response)
   res.status(204).send();
 });
 
-async function persistSyncedPlayers(teamId: string, remotePlayers: Array<{ name: string; externalId?: string | null; position?: string | null }>) {
+function normalizePlayerKey(name: string) {
+  return name.normalize("NFKC").trim().toLocaleLowerCase();
+}
+
+async function persistSyncedPlayers(
+  teamId: string,
+  remotePlayers: Array<{ name: string; externalId?: string | null; position?: string | null }>
+) {
   let added = 0;
   let updated = 0;
+  const currentPlayers = await prisma.player.findMany({ where: { teamId } });
+  const byName = new Map(currentPlayers.map((player) => [normalizePlayerKey(player.name), player]));
+  const remoteByName = new Map<string, { name: string; externalId: string | null; position: string | null }>();
 
   for (const remote of remotePlayers) {
-    const existing = await prisma.player.findUnique({
-      where: { teamId_name: { teamId, name: remote.name } },
+    const name = remote.name.trim();
+    const key = normalizePlayerKey(name);
+    if (!name || !key || remoteByName.has(key)) continue;
+
+    remoteByName.set(key, {
+      name,
+      externalId: remote.externalId?.trim() || null,
+      position: remote.position?.trim() || null,
     });
+  }
+
+  for (const remote of remoteByName.values()) {
+    const key = normalizePlayerKey(remote.name);
+    const existing = byName.get(key);
 
     if (!existing) {
-      await prisma.player.create({
+      const created = await prisma.player.create({
         data: {
           teamId,
           name: remote.name,
-          externalId: remote.externalId || null,
-          position: remote.position || null,
+          externalId: remote.externalId,
+          position: remote.position,
           isManual: false,
         },
       });
+      byName.set(key, created);
       added += 1;
     } else if (!existing.isManual) {
       await prisma.player.update({
         where: { id: existing.id },
-        data: { externalId: remote.externalId || null, position: remote.position || null },
+        data: { externalId: remote.externalId, position: remote.position },
       });
       updated += 1;
     }
   }
 
+  const staleSyncedCount = currentPlayers.filter(
+    (player) => !player.isManual && !remoteByName.has(normalizePlayerKey(player.name))
+  ).length;
   const players = await prisma.player.findMany({
     where: { teamId },
     orderBy: [{ isManual: "asc" }, { name: "asc" }],
   });
-  return { players, added, updated, remoteCount: remotePlayers.length };
+
+  return {
+    players,
+    added,
+    updated,
+    remoteCount: remotePlayers.length,
+    remoteUniqueCount: remoteByName.size,
+    staleSyncedCount,
+  };
 }
 
 export const syncTeamPlayers = asyncHandler(async (req: Request, res: Response) => {
