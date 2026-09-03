@@ -44,9 +44,15 @@ export function MatchList({ matches }: { matches: Match[] }) {
 
           <div className="text-right text-xs">
             {match.status === "PLAYED" ? (
-              <span className="text-accent-400">Encerrada</span>
+              <div>
+                <span className="text-accent-400">Encerrada</span>
+                {match.resultType !== "REGULAR" && <p className="mt-1 text-[10px] text-amber-300">Resultado por W.O.</p>}
+              </div>
             ) : (
-              <span className="text-slate-500">Agendada</span>
+              <div>
+                <span className="text-slate-500">Agendada</span>
+                {match.scheduledAt && <p className="mt-1 text-slate-400">{new Date(match.scheduledAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</p>}
+              </div>
             )}
           </div>
         </div>

@@ -79,6 +79,8 @@ export interface GroupStandings {
 
 export type MatchPhase = "GROUP" | "KNOCKOUT";
 export type MatchStatus = "SCHEDULED" | "PLAYED";
+export type MatchResultType = "REGULAR" | "HOME_WALKOVER" | "AWAY_WALKOVER" | "DOUBLE_WALKOVER";
+export type DisputeStatus = "OPEN" | "RESOLVED" | "REJECTED";
 
 export interface MatchPlayerStat {
   id: string;
@@ -104,6 +106,23 @@ export interface ChampionshipStatistics {
   assisters: ChampionshipRankingRow[];
 }
 
+export interface MatchDispute {
+  id: string;
+  matchId: string;
+  teamId: string;
+  openedByUserId: string;
+  status: DisputeStatus;
+  reason: string;
+  resolutionNote: string | null;
+  resolvedByUserId: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  team?: Team;
+  openedByUser?: Pick<User, "id" | "username">;
+  resolvedByUser?: Pick<User, "id" | "username"> | null;
+}
+
 export interface Match {
   id: string;
   championshipId: string;
@@ -123,10 +142,14 @@ export interface Match {
   winnerTeamId: string | null;
   winnerTeam?: Team | null;
   status: MatchStatus;
+  resultType: MatchResultType;
+  resultNote: string | null;
+  scheduledAt: string | null;
   discordChannelId: string | null;
   discordChannelUrl: string | null;
   startedAt: string | null;
   playerStats?: MatchPlayerStat[];
+  disputes?: MatchDispute[];
   readyTeamIds?: string[];
   myTeamId?: string | null;
 }

@@ -87,6 +87,31 @@ export async function fetchMyChampionshipMatchesRequest(championshipId: string) 
   return data;
 }
 
+export async function scheduleMatchRequest(matchId: string, scheduledAt: string | null) {
+  const { data } = await api.patch<Match>("/championships/matches/" + matchId + "/schedule", { scheduledAt });
+  return data;
+}
+
+export async function forfeitMatchRequest(matchId: string, winnerTeamId: string, reason: string) {
+  const { data } = await api.post<Match>("/championships/matches/" + matchId + "/forfeit", { winnerTeamId, reason });
+  return data;
+}
+
+export async function fetchMatchDisputesRequest(matchId: string) {
+  const { data } = await api.get<import("../types").MatchDispute[]>("/championships/matches/" + matchId + "/disputes");
+  return data;
+}
+
+export async function openMatchDisputeRequest(matchId: string, reason: string) {
+  const { data } = await api.post<import("../types").MatchDispute>("/championships/matches/" + matchId + "/disputes", { reason });
+  return data;
+}
+
+export async function resolveMatchDisputeRequest(disputeId: string, status: "RESOLVED" | "REJECTED", resolutionNote?: string) {
+  const { data } = await api.patch<import("../types").MatchDispute>("/championships/disputes/" + disputeId, { status, resolutionNote });
+  return data;
+}
+
 export async function markMatchReadyRequest(matchId: string) {
   const { data } = await api.post<{ matchId: string; readyTeamIds: string[] }>(
     `/championships/matches/${matchId}/ready`

@@ -19,6 +19,7 @@ export const listMatches = asyncHandler(async (req: Request, res: Response) => {
       group: true,
       playerStats: { include: { player: true }, orderBy: { player: { name: "asc" } } },
       readiness: { select: { teamId: true } },
+      disputes: { include: { team: true }, orderBy: { createdAt: "desc" } },
     },
     orderBy: [{ phase: "asc" }, { roundOrder: "asc" }],
   });
@@ -59,6 +60,69 @@ export const listMyMatches = asyncHandler(async (req: Request, res: Response) =>
   })));
 });
 
+
+const scheduleSchema = z.object({
+  scheduledAt: z.coerce.date().nullable(),
+});
+
+const forfeitSchema = z.object({
+  winnerTeamId: z.string().uuid(),
+  reason: z.string().trim().min(3).max(500),
+});
+
+const disputeSchema = z.object({
+  reason: z.string().trim().min(10).max(1000),
+});
+
+const disputeResolutionSchema = z.object({
+  status: z.enum(["RESOLVED", "REJECTED"]),
+  resolutionNote: z.string().trim().max(1000).optional(),
+});
+
+export const scheduleMatch = asyncHandler(async (req: Request, res: Response) => {
+  const { scheduledAt } = scheduleSchema.parse(req.body);
+  const match = await prisma.match.findUnique({ where: { id: req.params.id } });
+  if (!match) throw new AppError("Partida nao encontrada.", 404);
+  if (match.status === "PLAYED") throw new AppError("Nao e possivel reagendar uma partida encerrada.");
+
+  const updated = await prisma.match.update({
+    where: { id: match.id },
+    data: { scheduledAt },
+    include: { homeTeam: true, awayTeam: true },
+  });
+  res.json(updated);
+});
+
+export const forfeitMatch = asyncHandler(async (req: Request, res: Response) => {
+  const { winnerTeamId, reason } = forfeitSchema.parse(req.body);
+  const match = await prisma.match.findUnique({
+    where: { id: req.params.id },
+    include: { homeTeam: true, awayTeam: true },
+  });
+  if (!match) throw new AppError("Partida nao encontrada.", 404);
+  if (match.status === "PLAYED") throw new AppError("Esta partida ja foi encerrada.");
+  if (!match.homeTeamId || !match.awayTeamId || ![match.homeTeamId, match.awayTeamId].includes(winnerTeamId)) {
+    throw new AppError("O vencedor do W.O. deve ser um dos times da partida.");
+  }
+
+  const homeWins = winnerTeamId === match.homeTeamId;
+  const updated = await prisma.match.update({
+    where: { id: match.id },
+    data: {
+      homeScore: homeWins ? 3 : 0,
+      awayScore: homeWins ? 0 : 3,
+      homePenalty: null,
+      awayPenalty: null,
+      status: "PLAYED",
+      resultType: homeWins ? "HOME_WALKOVER" : "AWAY_WALKOVER",
+      resultNote: reason,
+      winnerTeamId,
+    },
+    include: { homeTeam: true, awayTeam: true },
+  });
+  res.json(updated);
+});
+
 export const markMatchReady = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.id;
   if (!userId) throw new AppError("Usuario nao autenticado.", 401);
@@ -93,6 +157,76 @@ export const markMatchReady = asyncHandler(async (req: Request, res: Response) =
     matchId: match.id,
     readyTeamIds: readiness.map((item) => item.teamId),
   });
+});
+
+
+export const listMatchDisputes = asyncHandler(async (req: Request, res: Response) => {
+  const match = await prisma.match.findUnique({
+    where: { id: req.params.id },
+    include: { homeTeam: true, awayTeam: true },
+  });
+  if (!match) throw new AppError("Partida nao encontrada.", 404);
+  const isCaptain = [match.homeTeam, match.awayTeam].some(
+    (team) => team?.captainUserId === req.user?.id
+  );
+  if (req.user?.role !== "ADMIN" && !isCaptain) throw new AppError("Sem permissao para consultar as disputas desta partida.", 403);
+
+  const disputes = await prisma.matchDispute.findMany({
+    where: { matchId: match.id },
+    include: {
+      team: true,
+      openedByUser: { select: { id: true, username: true } },
+      resolvedByUser: { select: { id: true, username: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  res.json(disputes);
+});
+
+export const openMatchDispute = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) throw new AppError("Usuario nao autenticado.", 401);
+  const { reason } = disputeSchema.parse(req.body);
+  const match = await prisma.match.findUnique({
+    where: { id: req.params.id },
+    include: { homeTeam: true, awayTeam: true },
+  });
+  if (!match) throw new AppError("Partida nao encontrada.", 404);
+  const team = [match.homeTeam, match.awayTeam].find((candidate) => candidate?.captainUserId === userId);
+  if (!team) throw new AppError("Somente o capitao de um dos times pode abrir uma disputa.", 403);
+  const existing = await prisma.matchDispute.findFirst({
+    where: { matchId: match.id, teamId: team.id, status: "OPEN" },
+  });
+  if (existing) throw new AppError("Este time ja possui uma disputa aberta para esta partida.");
+
+  const dispute = await prisma.matchDispute.create({
+    data: { matchId: match.id, teamId: team.id, openedByUserId: userId, reason },
+    include: { team: true, openedByUser: { select: { id: true, username: true } } },
+  });
+  res.status(201).json(dispute);
+});
+
+export const resolveMatchDispute = asyncHandler(async (req: Request, res: Response) => {
+  const { status, resolutionNote } = disputeResolutionSchema.parse(req.body);
+  const dispute = await prisma.matchDispute.findUnique({ where: { id: req.params.id } });
+  if (!dispute) throw new AppError("Disputa nao encontrada.", 404);
+  if (dispute.status !== "OPEN") throw new AppError("Esta disputa ja foi analisada.");
+
+  const updated = await prisma.matchDispute.update({
+    where: { id: dispute.id },
+    data: {
+      status,
+      resolutionNote: resolutionNote || null,
+      resolvedByUserId: req.user?.id,
+      resolvedAt: new Date(),
+    },
+    include: {
+      team: true,
+      openedByUser: { select: { id: true, username: true } },
+      resolvedByUser: { select: { id: true, username: true } },
+    },
+  });
+  res.json(updated);
 });
 
 const playerStatsSchema = z.object({
@@ -220,6 +354,8 @@ export const updateMatchScore = asyncHandler(async (req: Request, res: Response)
       homePenalty: data.homePenalty ?? null,
       awayPenalty: data.awayPenalty ?? null,
       status: "PLAYED",
+      resultType: "REGULAR",
+      resultNote: null,
       winnerTeamId,
     },
     include: { homeTeam: true, awayTeam: true },
@@ -256,6 +392,8 @@ export const fetchMatchScoreFromEa = asyncHandler(async (req: Request, res: Resp
       homePenalty: null,
       awayPenalty: null,
       status: "PLAYED",
+      resultType: "REGULAR",
+      resultNote: null,
       winnerTeamId:
         match.phase === "KNOCKOUT"
           ? result.homeScore > result.awayScore
@@ -408,6 +546,8 @@ export const resetMatchScore = asyncHandler(async (req: Request, res: Response) 
       homePenalty: null,
       awayPenalty: null,
       status: "SCHEDULED",
+      resultType: "REGULAR",
+      resultNote: null,
       winnerTeamId: null,
     },
   });

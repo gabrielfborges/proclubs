@@ -34,6 +34,11 @@ import {
   fetchMatchPlayerStatsFromEaClient,
   updateMatchPlayerStats,
   startMatch,
+  scheduleMatch,
+  forfeitMatch,
+  listMatchDisputes,
+  openMatchDispute,
+  resolveMatchDispute,
 } from "../controllers/match.controller";
 import {
   getKnockoutBracket,
@@ -87,6 +92,11 @@ router.get("/:championshipId/statistics", getChampionshipStatistics);
 router.get("/:championshipId/matches", listMatches);
 router.get("/:championshipId/matches/mine", requireAuth, listMyMatches);
 router.post("/matches/:id/ready", requireAuth, markMatchReady);
+router.patch("/matches/:id/schedule", requireAdmin, scheduleMatch);
+router.post("/matches/:id/forfeit", requireAdmin, forfeitMatch);
+router.get("/matches/:id/disputes", requireAuth, listMatchDisputes);
+router.post("/matches/:id/disputes", requireAuth, openMatchDispute);
+router.patch("/disputes/:id", requireAdmin, resolveMatchDispute);
 router.patch("/matches/:id/score", requireAdmin, updateMatchScore);
 router.post("/matches/:id/score/ea", requireAdmin, fetchMatchScoreFromEa);
 router.post("/matches/:id/score/ea-client", requireAdmin, fetchMatchScoreFromEaClient);

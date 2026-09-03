@@ -11,6 +11,7 @@ import {
   generateMatchesRequest,
   fetchMatches,
   updateMatchScoreRequest,
+  scheduleMatchRequest,
   fetchMatchScoreFromEaRequest,
   fetchMatchPlayerStatsFromEaRequest,
   updateMatchPlayerStatsRequest,
@@ -174,6 +175,7 @@ export function ChampionshipManage() {
           onSaveScore={(matchId, homeScore, awayScore) =>
             runAction(() => updateMatchScoreRequest(matchId, { homeScore, awayScore }))
           }
+          onSchedule={(matchId, scheduledAt) => runAction(() => scheduleMatchRequest(matchId, scheduledAt))}
           onFetchScore={(match) =>
             runAction(() =>
               fetchMatchScoreFromEaRequest(match.id, match.homeTeam?.eaClubId, match.awayTeam?.eaClubId)
@@ -210,6 +212,7 @@ export function ChampionshipManage() {
               updateMatchScoreRequest(matchId, { homeScore, awayScore, homePenalty, awayPenalty })
             )
           }
+          onSchedule={(matchId, scheduledAt) => runAction(() => scheduleMatchRequest(matchId, scheduledAt))}
           onFetchScore={(match) =>
             runAction(() =>
               fetchMatchScoreFromEaRequest(match.id, match.homeTeam?.eaClubId, match.awayTeam?.eaClubId)
@@ -433,6 +436,7 @@ function GroupsPanel({
   onResetScore,
   onFetchScore,
   onStartChat,
+  onSchedule,
 }: {
   championship: Championship;
   groups: Group[];
@@ -444,6 +448,7 @@ function GroupsPanel({
   onResetScore: (matchId: string) => void;
   onFetchScore: (match: Match) => void;
   onStartChat: (matchId: string) => void;
+  onSchedule: (matchId: string, scheduledAt: string | null) => void;
 }) {
   const [groupFilter, setGroupFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "PLAYED">("ALL");
@@ -595,6 +600,7 @@ function GroupsPanel({
                   onReset={() => onResetScore(match.id)}
                   onFetchScore={() => onFetchScore(match)}
                     onStartChat={() => onStartChat(match.id)}
+                  onSchedule={(matchId, scheduledAt) => onSchedule(matchId, scheduledAt)}
                 />
               ))}
             </div>
@@ -629,6 +635,7 @@ function KnockoutPanel({
   onResetScore,
   onFetchScore,
   onStartChat,
+  onSchedule,
 }: {
   championship: Championship;
   matches: Match[];
@@ -646,6 +653,7 @@ function KnockoutPanel({
   onResetScore: (matchId: string) => void;
   onFetchScore: (match: Match) => void;
   onStartChat: (matchId: string) => void;
+  onSchedule: (matchId: string, scheduledAt: string | null) => void;
 }) {
   const [roundFilter, setRoundFilter] = useState("CURRENT");
   const lastRound = matches.length > 0 ? matches[matches.length - 1].round : null;
@@ -759,6 +767,7 @@ function KnockoutPanel({
                     onReset={() => onResetScore(match.id)}
                     onFetchScore={() => onFetchScore(match)}
                     onStartChat={() => onStartChat(match.id)}
+                    onSchedule={(matchId, scheduledAt) => onSchedule(matchId, scheduledAt)}
                   />
                 ))}
             </div>
@@ -808,6 +817,7 @@ function MatchScoreRow({
   onReset,
   onFetchScore,
   onStartChat,
+  onSchedule,
 }: {
   match: Match;
   matchNumber: number;
@@ -817,18 +827,21 @@ function MatchScoreRow({
   onReset: () => void;
   onFetchScore?: () => void;
   onStartChat?: () => void;
+  onSchedule: (matchId: string, scheduledAt: string | null) => void;
 }) {
   const [home, setHome] = useState(match.homeScore == null ? "" : String(match.homeScore));
   const [away, setAway] = useState(match.awayScore == null ? "" : String(match.awayScore));
   const [penHome, setPenHome] = useState(match.homePenalty == null ? "" : String(match.homePenalty));
   const [penAway, setPenAway] = useState(match.awayPenalty == null ? "" : String(match.awayPenalty));
   const [validationError, setValidationError] = useState("");
+  const [scheduleValue, setScheduleValue] = useState(match.scheduledAt ? match.scheduledAt.slice(0, 16) : "");
 
   useEffect(() => {
     setHome(match.homeScore == null ? "" : String(match.homeScore));
     setAway(match.awayScore == null ? "" : String(match.awayScore));
     setPenHome(match.homePenalty == null ? "" : String(match.homePenalty));
     setPenAway(match.awayPenalty == null ? "" : String(match.awayPenalty));
+    setScheduleValue(match.scheduledAt ? match.scheduledAt.slice(0, 16) : "");
   }, [match.id, match.homeScore, match.awayScore, match.homePenalty, match.awayPenalty]);
 
   const homeScore = home === "" ? null : Number(home);
@@ -946,6 +959,25 @@ function MatchScoreRow({
         )}
 
         <div className="flex flex-wrap items-center justify-end gap-2 xl:min-w-[315px]">
+          <div className="flex w-full items-center justify-end gap-2">
+            <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500" htmlFor={"schedule-" + match.id}>Data/hora</label>
+            <input
+              id={"schedule-" + match.id}
+              type="datetime-local"
+              className="input h-9 w-auto text-xs"
+              value={scheduleValue}
+              onChange={(event) => setScheduleValue(event.target.value)}
+              disabled={disabled || match.status === "PLAYED"}
+            />
+            <button
+              type="button"
+              className="btn-secondary !px-3 !py-2 text-xs"
+              disabled={disabled || match.status === "PLAYED"}
+              onClick={() => onSchedule(match.id, scheduleValue ? new Date(scheduleValue).toISOString() : null)}
+            >
+              Salvar horario
+            </button>
+          </div>
           {match.status === "SCHEDULED" && match.homeTeamId && match.awayTeamId && (
             <div className="flex w-full items-center justify-end gap-2 text-[10px] font-semibold uppercase tracking-wide">
               <span className={match.readyTeamIds?.includes(match.homeTeamId) ? "text-accent-400" : "text-slate-600"}>

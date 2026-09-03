@@ -29,6 +29,13 @@ enum MatchStatus {
   PLAYED
 }
 
+enum MatchResultType {
+  REGULAR
+  HOME_WALKOVER
+  AWAY_WALKOVER
+  DOUBLE_WALKOVER
+}
+
 enum MatchPlayerStatSource {
   EA
   MANUAL
@@ -37,6 +44,12 @@ enum MatchPlayerStatSource {
 enum ChampionshipApplicationStatus {
   PENDING
   APPROVED
+  REJECTED
+}
+
+enum DisputeStatus {
+  OPEN
+  RESOLVED
   REJECTED
 }
 
@@ -51,6 +64,8 @@ model User {
 
   captainOf    Team[]   @relation("TeamCaptain")
   matchReadiness MatchReadiness[]
+  openedDisputes MatchDispute[] @relation("DisputeOpenedBy")
+  resolvedDisputes MatchDispute[] @relation("DisputeResolvedBy")
 }
 
 model Championship {
@@ -91,6 +106,7 @@ model Team {
   championOf     Championship[] @relation("ChampionTeam")
   players        Player[]
   matchReadiness MatchReadiness[]
+  disputes       MatchDispute[]
 
   @@unique([championshipId, name])
 }
@@ -164,6 +180,9 @@ model Match {
   winnerTeam   Team?  @relation("WinnerTeam", fields: [winnerTeamId], references: [id])
 
   status    MatchStatus @default(SCHEDULED)
+  resultType MatchResultType @default(REGULAR)
+  resultNote String?
+  scheduledAt DateTime?
   discordChannelId  String?
   discordChannelUrl String?
   startedAt         DateTime?
@@ -172,6 +191,7 @@ model Match {
 
   playerStats MatchPlayerStat[]
   readiness   MatchReadiness[]
+  disputes    MatchDispute[]
 }
 
 model MatchReadiness {
@@ -187,6 +207,27 @@ model MatchReadiness {
 
   @@unique([matchId, teamId])
   @@index([userId])
+}
+model MatchDispute {
+  id               String        @id @default(uuid())
+  matchId          String
+  teamId           String
+  openedByUserId   String
+  status           DisputeStatus @default(OPEN)
+  reason           String
+  resolutionNote   String?
+  resolvedByUserId String?
+  resolvedAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  match          Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team           Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  openedByUser   User  @relation("DisputeOpenedBy", fields: [openedByUserId], references: [id], onDelete: Cascade)
+  resolvedByUser User? @relation("DisputeResolvedBy", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([matchId, status])
+  @@unique([matchId, teamId, status])
 }
 model Player {
   id         String   @id @default(uuid())

@@ -332,6 +332,7 @@ function UpcomingMatchCard({
           <p className="mt-1 truncate text-sm font-semibold text-slate-100">
             {match.homeTeam?.name || "A definir"} <span className="px-1 text-slate-500">x</span> {match.awayTeam?.name || "A definir"}
           </p>
+          {match.scheduledAt && <p className="mt-1 text-xs text-accent-400">Agendada: {new Date(match.scheduledAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</p>}
           <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-wide">
             <span className={homeReady ? "text-accent-400" : "text-slate-600"}>{homeReady ? "Casa pronta" : "Casa aguardando"}</span>
             <span className={awayReady ? "text-accent-400" : "text-slate-600"}>{awayReady ? "Fora pronto" : "Fora aguardando"}</span>
