@@ -27,12 +27,17 @@ function groupName(index: number): string {
 export async function generateGroups(championshipId: string) {
   const championship = await prisma.championship.findUnique({
     where: { id: championshipId },
-    include: { teams: true, groups: { include: { matches: true } } },
+    include: {
+      applications: { where: { status: "APPROVED" }, include: { team: true } },
+      groups: { include: { matches: true } },
+    },
   });
 
   if (!championship) throw new AppError("Campeonato nao encontrado.", 404);
 
-  if (championship.teams.length < 2) {
+  const teams = championship.applications.map((application) => application.team);
+
+  if (teams.length < 2) {
     throw new AppError("E necessario pelo menos 2 times cadastrados para gerar os grupos.");
   }
 
@@ -47,9 +52,9 @@ export async function generateGroups(championshipId: string) {
 
   const numberOfGroups = Math.max(1, championship.numberOfGroups);
 
-  if (championship.teams.length < numberOfGroups * 2) {
+  if (teams.length < numberOfGroups * 2) {
     throw new AppError(
-      `Times insuficientes: com ${championship.teams.length} time(s) cadastrado(s) e ${numberOfGroups} grupo(s) configurado(s), pelo menos um grupo ficaria com menos de 2 times e sem partidas. Cadastre mais times ou reduza a quantidade de grupos na edição do campeonato.`
+      `Times insuficientes: com ${teams.length} time(s) cadastrado(s) e ${numberOfGroups} grupo(s) configurado(s), pelo menos um grupo ficaria com menos de 2 times e sem partidas. Cadastre mais times ou reduza a quantidade de grupos na edição do campeonato.`
     );
   }
 
@@ -58,7 +63,7 @@ export async function generateGroups(championshipId: string) {
     await tx.match.deleteMany({ where: { championshipId, phase: "GROUP" } });
     await tx.group.deleteMany({ where: { championshipId } });
 
-    const shuffled = shuffle(championship.teams);
+    const shuffled = shuffle(teams);
     const groups = [];
     for (let i = 0; i < numberOfGroups; i++) {
       groups.push(

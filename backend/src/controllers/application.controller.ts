@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
+import { countApprovedChampionshipTeams } from "../services/championship-teams.service";
 
 const requestSchema = z.object({
   teamId: z.string().uuid("Selecione um time valido."),
@@ -48,20 +49,19 @@ export const requestChampionshipApplication = asyncHandler(async (req: Request, 
 
   const { teamId } = requestSchema.parse(req.body);
   const championshipId = req.params.championshipId;
-  const [team, championship] = await Promise.all([
+  const [team, championship, approvedTeamCount] = await Promise.all([
     prisma.team.findUnique({ where: { id: teamId } }),
     prisma.championship.findUnique({
       where: { id: championshipId },
-      include: { _count: { select: { teams: true } } },
     }),
+    countApprovedChampionshipTeams(championshipId),
   ]);
 
   if (!team) throw new AppError("Time nao encontrado.", 404);
   if (team.captainUserId !== userId) throw new AppError("Somente o capitao pode solicitar a inscricao deste time.", 403);
-  if (team.championshipId) throw new AppError("Este time ja esta vinculado a um campeonato.");
   if (!championship) throw new AppError("Campeonato nao encontrado.", 404);
   if (championship.stage !== "REGISTRATION") throw new AppError("Este campeonato nao esta aceitando inscricoes.");
-  if (championship._count.teams >= championship.maxTeams) throw new AppError("Este campeonato ja atingiu o limite de times.");
+  if (approvedTeamCount >= championship.maxTeams) throw new AppError("Este campeonato ja atingiu o limite de times.");
 
   const existing = await prisma.championshipApplication.findUnique({
     where: { teamId_championshipId: { teamId, championshipId } },
@@ -72,7 +72,7 @@ export const requestChampionshipApplication = asyncHandler(async (req: Request, 
   const application = existing
     ? await prisma.championshipApplication.update({
         where: { id: existing.id },
-        data: { status: "PENDING", reviewedAt: null },
+        data: { status: "PENDING", reviewedAt: null, approvedAt: null },
         include: { team: true, championship: { select: { id: true, name: true, stage: true } } },
       })
     : await prisma.championshipApplication.create({
@@ -99,7 +99,7 @@ export const reviewChampionshipApplication = asyncHandler(async (req: Request, r
     if (status === "REJECTED") {
       return tx.championshipApplication.update({
         where: { id: applicationId },
-        data: { status, reviewedAt: new Date() },
+        data: { status, reviewedAt: new Date(), approvedAt: null },
         include: { team: { include: { captainUser: { select: { id: true, username: true } } } } },
       });
     }
@@ -107,18 +107,12 @@ export const reviewChampionshipApplication = asyncHandler(async (req: Request, r
     if (application.championship.stage !== "REGISTRATION") {
       throw new AppError("Este campeonato nao esta aceitando novas inscricoes.");
     }
-    const teamCount = await tx.team.count({ where: { championshipId: application.championshipId } });
+    const teamCount = await tx.championshipApplication.count({
+      where: { championshipId: application.championshipId, status: "APPROVED" },
+    });
     if (teamCount >= application.championship.maxTeams) {
       throw new AppError("Nao ha mais vagas neste campeonato.");
     }
-    if (application.team.championshipId) {
-      throw new AppError("Este time ja esta vinculado a um campeonato.");
-    }
-
-    await tx.team.update({
-      where: { id: application.teamId },
-      data: { championshipId: application.championshipId },
-    });
     await tx.championshipApplication.updateMany({
       where: { teamId: application.teamId, status: "PENDING", id: { not: applicationId } },
       data: { status: "REJECTED", reviewedAt: new Date() },
@@ -126,7 +120,7 @@ export const reviewChampionshipApplication = asyncHandler(async (req: Request, r
 
     return tx.championshipApplication.update({
       where: { id: applicationId },
-      data: { status, reviewedAt: new Date() },
+      data: { status, reviewedAt: new Date(), approvedAt: new Date() },
       include: { team: { include: { captainUser: { select: { id: true, username: true } } } } },
     });
   });

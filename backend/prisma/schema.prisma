@@ -101,6 +101,7 @@ model ChampionshipApplication {
   championshipId String
   status         ChampionshipApplicationStatus @default(PENDING)
   reviewedAt     DateTime?
+  approvedAt     DateTime?
   createdAt      DateTime                     @default(now())
   updatedAt      DateTime                     @updatedAt
 

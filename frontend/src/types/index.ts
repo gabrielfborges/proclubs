@@ -10,6 +10,7 @@ export interface Team {
   captainUserId: string | null;
   captainUser?: Pick<User, "id" | "username"> | null;
   championshipId: string | null;
+  championships?: Array<Pick<Championship, "id" | "name" | "stage">>;
   createdAt: string;
   players?: Player[];
 }
@@ -147,6 +148,7 @@ export interface ChampionshipApplication {
   championshipId: string;
   status: ChampionshipApplicationStatus;
   reviewedAt: string | null;
+  approvedAt: string | null;
   createdAt: string;
   updatedAt: string;
   team: Team;

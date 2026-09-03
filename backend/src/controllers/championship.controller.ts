@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
+import { countApprovedChampionshipTeams } from "../services/championship-teams.service";
 
 const createSchema = z.object({
   name: z.string().min(3, "Nome deve ter ao menos 3 caracteres."),
@@ -26,20 +27,28 @@ function serialize(c: any) {
 export const listChampionships = asyncHandler(async (req: Request, res: Response) => {
   const championships = await prisma.championship.findMany({
     include: {
-      teams: { include: { captainUser: { select: { id: true, username: true } }, players: true } },
+      applications: {
+        where: { status: "APPROVED" },
+        include: { team: { include: { captainUser: { select: { id: true, username: true } }, players: true } } },
+      },
       championTeam: true,
-      _count: { select: { teams: true } },
     },
     orderBy: { createdAt: "desc" },
   });
-  res.json(championships.map(serialize));
+  res.json(championships.map(({ applications, ...championship }) => serialize({
+    ...championship,
+    teams: applications.map((application) => application.team),
+  })));
 });
 
 export const getChampionship = asyncHandler(async (req: Request, res: Response) => {
   const championship = await prisma.championship.findUnique({
     where: { id: req.params.id },
     include: {
-      teams: { include: { captainUser: { select: { id: true, username: true } }, players: true } },
+      applications: {
+        where: { status: "APPROVED" },
+        include: { team: { include: { captainUser: { select: { id: true, username: true } }, players: true } } },
+      },
       championTeam: true,
       groups: {
         include: { teams: { include: { team: true } } },
@@ -48,7 +57,8 @@ export const getChampionship = asyncHandler(async (req: Request, res: Response) 
     },
   });
   if (!championship) throw new AppError("Campeonato nao encontrado.", 404);
-  res.json(serialize(championship));
+  const { applications, ...data } = championship;
+  res.json(serialize({ ...data, teams: applications.map((application) => application.team) }));
 });
 
 export const createChampionship = asyncHandler(async (req: Request, res: Response) => {
@@ -63,7 +73,7 @@ export const updateChampionship = asyncHandler(async (req: Request, res: Respons
   if (!championship) throw new AppError("Campeonato nao encontrado.", 404);
 
   if (data.maxTeams) {
-    const teamCount = await prisma.team.count({ where: { championshipId: championship.id } });
+    const teamCount = await countApprovedChampionshipTeams(championship.id);
     if (data.maxTeams < teamCount) {
       throw new AppError(
         `Ja existem ${teamCount} times cadastrados. O limite nao pode ser menor que isso.`
