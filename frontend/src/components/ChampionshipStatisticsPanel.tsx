@@ -5,7 +5,24 @@ export function ChampionshipStatisticsPanel({ statistics }: { statistics: Champi
   const label = (kind: "goals" | "assists") => kind === "goals" ? "Gols" : "Assistências";
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="space-y-6">
+      {statistics.summary && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {[
+            ["Partidas", `${statistics.summary.playedMatches}/${statistics.summary.totalMatches}`],
+            ["Gols", statistics.summary.totalGoals],
+            ["Assistencias", statistics.summary.totalAssists],
+            ["Jogadores", statistics.summary.playersWithStats],
+            ["Status", statistics.summary.playedMatches === statistics.summary.totalMatches && statistics.summary.totalMatches > 0 ? "Completo" : "Em andamento"],
+          ].map(([label, value]) => (
+            <div key={label} className="card px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+              <p className="mt-1 text-xl font-bold text-accent-400">{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="grid gap-6 md:grid-cols-2">
       {(["goals", "assists"] as const).map((kind) => (
         <section key={kind} className="card overflow-hidden">
           <div className="border-b border-base-700 px-4 py-3">
@@ -22,6 +39,7 @@ export function ChampionshipStatisticsPanel({ statistics }: { statistics: Champi
           )}
         </section>
       ))}
+      </div>
     </div>
   );
 }

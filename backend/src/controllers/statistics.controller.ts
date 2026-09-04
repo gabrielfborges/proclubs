@@ -7,18 +7,29 @@ type Ranking = {
   playerName: string;
   teamId: string;
   teamName: string;
-  goals?: number;
-  assists?: number;
+  goals: number;
+  assists: number;
 };
 
 export const getChampionshipStatistics = asyncHandler(async (req: Request, res: Response) => {
-  const championship = await prisma.championship.findUnique({ where: { id: req.params.championshipId } });
+  const championship = await prisma.championship.findUnique({
+    where: { id: req.params.championshipId },
+    select: { id: true },
+  });
   if (!championship) throw new AppError("Campeonato nao encontrado.", 404);
 
-  const stats = await prisma.matchPlayerStat.findMany({
-    where: { match: { championshipId: championship.id, status: "PLAYED" } },
-    include: { player: { include: { team: true } } },
-  });
+  const [stats, totalMatches, playedMatches] = await Promise.all([
+    prisma.matchPlayerStat.findMany({
+      where: { match: { championshipId: championship.id, status: "PLAYED" } },
+      include: { player: { include: { team: true } } },
+    }),
+    prisma.match.count({ where: { championshipId: championship.id } }),
+    prisma.match.findMany({
+      where: { championshipId: championship.id, status: "PLAYED" },
+      select: { homeScore: true, awayScore: true },
+    }),
+  ]);
+
   const aggregate = new Map<string, Ranking>();
   for (const stat of stats) {
     const current = aggregate.get(stat.playerId) || {
@@ -29,14 +40,33 @@ export const getChampionshipStatistics = asyncHandler(async (req: Request, res: 
       goals: 0,
       assists: 0,
     };
-    current.goals = (current.goals || 0) + stat.goals;
-    current.assists = (current.assists || 0) + stat.assists;
+    current.goals += stat.goals;
+    current.assists += stat.assists;
     aggregate.set(stat.playerId, current);
   }
 
   const rows = [...aggregate.values()];
+  const scorers = rows
+    .filter((row) => row.goals > 0)
+    .sort((a, b) => b.goals - a.goals || a.playerName.localeCompare(b.playerName))
+    .slice(0, 20);
+  const assisters = rows
+    .filter((row) => row.assists > 0)
+    .sort((a, b) => b.assists - a.assists || a.playerName.localeCompare(b.playerName))
+    .slice(0, 20);
+
   res.json({
-    scorers: rows.map(({ assists, ...row }) => ({ ...row, goals: row.goals || 0 })).sort((a, b) => b.goals - a.goals || a.playerName.localeCompare(b.playerName)).slice(0, 20),
-    assisters: rows.map(({ goals, ...row }) => ({ ...row, assists: row.assists || 0 })).sort((a, b) => b.assists - a.assists || a.playerName.localeCompare(b.playerName)).slice(0, 20),
+    summary: {
+      totalMatches,
+      playedMatches: playedMatches.length,
+      totalGoals: playedMatches.reduce(
+        (total, match) => total + (match.homeScore ?? 0) + (match.awayScore ?? 0),
+        0
+      ),
+      totalAssists: stats.reduce((total, stat) => total + stat.assists, 0),
+      playersWithStats: rows.length,
+    },
+    scorers,
+    assisters,
   });
 });

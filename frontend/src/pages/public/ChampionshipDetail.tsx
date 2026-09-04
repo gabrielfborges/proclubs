@@ -161,10 +161,10 @@ export function ChampionshipDetail() {
             <p className="max-w-2xl text-sm text-slate-400">{championship.description}</p>
           )}
         </div>
-        {championship.championTeam && (
+        {(championship.championTeamName || championship.championTeam) && (
           <div className="card px-4 py-3 text-center">
             <p className="text-xs uppercase tracking-wide text-slate-400">Campeao</p>
-            <p className="text-lg font-bold text-accent-400">🏆 {championship.championTeam.name}</p>
+            <p className="text-lg font-bold text-accent-400">🏆 {championship.championTeamName || championship.championTeam?.name}</p>
           </div>
         )}
       </div>

@@ -77,8 +77,8 @@ export function Dashboard() {
                 <span>
                   {champ.teams?.length ?? 0}/{champ.maxTeams} times
                 </span>
-                {champ.championTeam && (
-                  <span className="text-accent-400">🏆 {champ.championTeam.name}</span>
+                {(champ.championTeamName || champ.championTeam) && (
+                  <span className="text-accent-400">🏆 {champ.championTeamName || champ.championTeam?.name}</span>
                 )}
               </div>
             </Link>

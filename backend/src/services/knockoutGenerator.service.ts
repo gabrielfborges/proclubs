@@ -184,10 +184,21 @@ export async function advanceKnockoutStage(championshipId: string) {
     .map((m) => m.winnerTeamId as string);
 
   if (winners.length === 1) {
-    // final ja disputada: define o campeao
+    // final ja disputada: define o campeao e congela o nome para o historico
+    const championTeam = await prisma.team.findUnique({
+      where: { id: winners[0] },
+      select: { name: true },
+    });
+    if (!championTeam) throw new AppError("Time campeao nao encontrado.");
+
     await prisma.championship.update({
       where: { id: championshipId },
-      data: { stage: "FINISHED", championTeamId: winners[0] },
+      data: {
+        stage: "FINISHED",
+        championTeamId: winners[0],
+        championTeamName: championTeam.name,
+        championDefinedAt: new Date(),
+      },
     });
     return { finished: true, championTeamId: winners[0] };
   }

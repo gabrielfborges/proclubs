@@ -799,9 +799,9 @@ function KnockoutPanel({
             </>
           )
         )}
-        {isFinished && championship.championTeam && (
+        {isFinished && (championship.championTeamName || championship.championTeam) && (
           <p className="text-sm font-semibold text-accent-400">
-            Campeao: {championship.championTeam.name}
+            Campeao: {championship.championTeamName || championship.championTeam?.name}
           </p>
         )}
       </div>

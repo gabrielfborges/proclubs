@@ -36,6 +36,8 @@ export interface Championship {
   stage: ChampionshipStage;
   status: ChampionshipStatus;
   championTeamId: string | null;
+  championTeamName?: string | null;
+  championDefinedAt?: string | null;
   championTeam?: Team | null;
   teams: Team[];
   groups?: Group[];
@@ -102,6 +104,13 @@ export interface ChampionshipRankingRow {
 }
 
 export interface ChampionshipStatistics {
+  summary?: {
+    totalMatches: number;
+    playedMatches: number;
+    totalGoals: number;
+    totalAssists: number;
+    playersWithStats: number;
+  };
   scorers: ChampionshipRankingRow[];
   assisters: ChampionshipRankingRow[];
 }

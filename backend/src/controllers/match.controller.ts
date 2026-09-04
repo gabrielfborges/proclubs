@@ -3,7 +3,9 @@ import { z } from "zod";
 import { prisma } from "../prisma";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { findLatestEaMatch, findLatestEaMatchFromPayloads } from "../services/ea-clubs.service";
-import { createMatchDiscordChannel } from "../services/discord.service";
+import { createMatchDiscordChannel, sendMatchDiscordMessage } from "../services/discord.service";
+
+const pendingDiscordChannelCreations = new Map<string, Promise<{ id: string; url: string }>>();
 
 export const listMatches = asyncHandler(async (req: Request, res: Response) => {
   const { phase, groupId } = req.query;
@@ -143,6 +145,10 @@ export const markMatchReady = asyncHandler(async (req: Request, res: Response) =
     throw new AppError("Somente o capitao de um dos times pode confirmar presenca.", 403);
   }
 
+  const previousReadiness = await prisma.matchReadiness.findUnique({
+    where: { matchId_teamId: { matchId: match.id, teamId: team.id } },
+  });
+
   await prisma.matchReadiness.upsert({
     where: { matchId_teamId: { matchId: match.id, teamId: team.id } },
     update: { userId, readyAt: new Date() },
@@ -153,9 +159,26 @@ export const markMatchReady = asyncHandler(async (req: Request, res: Response) =
     where: { matchId: match.id },
     select: { teamId: true },
   });
+  const readyTeamIds = readiness.map((item) => item.teamId);
+  const bothTeamsReady = Boolean(
+    match.homeTeamId &&
+      match.awayTeamId &&
+      readyTeamIds.includes(match.homeTeamId) &&
+      readyTeamIds.includes(match.awayTeamId)
+  );
+
+  if (!previousReadiness && bothTeamsReady && match.discordChannelId && match.homeTeam && match.awayTeam) {
+    void sendMatchDiscordMessage(
+      match.discordChannelId,
+      `Os capitaes de **${match.homeTeam.name}** e **${match.awayTeam.name}** confirmaram presenca. A partida esta pronta para comecar.`,
+    ).catch((error) => {
+      console.warn("Presenca confirmada, mas nao foi possivel avisar no Discord.", error);
+    });
+  }
+
   res.json({
     matchId: match.id,
-    readyTeamIds: readiness.map((item) => item.teamId),
+    readyTeamIds,
   });
 });
 
@@ -274,7 +297,7 @@ export const updateMatchPlayerStats = asyncHandler(async (req: Request, res: Res
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.matchPlayerStat.deleteMany({ where: { matchId: match.id, source: "MANUAL" } });
+    await tx.matchPlayerStat.deleteMany({ where: { matchId: match.id } });
     const manualStats = data.stats.filter((stat) => stat.goals > 0 || stat.assists > 0);
     if (manualStats.length > 0) {
       await tx.matchPlayerStat.createMany({
@@ -304,7 +327,21 @@ export const startMatch = asyncHandler(async (req: Request, res: Response) => {
     return res.json(match);
   }
 
-  const channel = await createMatchDiscordChannel(match);
+  let channelPromise = pendingDiscordChannelCreations.get(match.id);
+  if (!channelPromise) {
+    channelPromise = createMatchDiscordChannel(match);
+    pendingDiscordChannelCreations.set(match.id, channelPromise);
+  }
+
+  let channel: { id: string; url: string };
+  try {
+    channel = await channelPromise;
+  } finally {
+    if (pendingDiscordChannelCreations.get(match.id) === channelPromise) {
+      pendingDiscordChannelCreations.delete(match.id);
+    }
+  }
+
   const updated = await prisma.match.update({
     where: { id: match.id },
     data: {
@@ -552,18 +589,25 @@ export const resetMatchScore = asyncHandler(async (req: Request, res: Response) 
   const match = await prisma.match.findUnique({ where: { id: req.params.id } });
   if (!match) throw new AppError("Partida nao encontrada.", 404);
 
-  const updated = await prisma.match.update({
-    where: { id: req.params.id },
-    data: {
-      homeScore: null,
-      awayScore: null,
-      homePenalty: null,
-      awayPenalty: null,
-      status: "SCHEDULED",
-      resultType: "REGULAR",
-      resultNote: null,
-      winnerTeamId: null,
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.matchPlayerStat.deleteMany({ where: { matchId: match.id } });
+    await tx.matchReadiness.deleteMany({ where: { matchId: match.id } });
+
+    return tx.match.update({
+      where: { id: match.id },
+      data: {
+        homeScore: null,
+        awayScore: null,
+        homePenalty: null,
+        awayPenalty: null,
+        status: "SCHEDULED",
+        resultType: "REGULAR",
+        resultNote: null,
+        winnerTeamId: null,
+        startedAt: null,
+      },
+    });
   });
+
   res.json(updated);
 });

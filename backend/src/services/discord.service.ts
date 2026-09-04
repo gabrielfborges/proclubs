@@ -87,27 +87,62 @@ async function discordRequest<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
-  const response = await fetch(`${DISCORD_API}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bot ${token}`,
-      "Content-Type": "application/json",
-      ...(init?.headers || {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${DISCORD_API}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bot ${token}`,
+        "Content-Type": "application/json",
+        ...(init?.headers || {}),
+      },
+      signal: init?.signal ?? AbortSignal.timeout(15_000),
+    });
+  } catch (error) {
+    console.error("Falha de rede ao acessar a API do Discord.", error);
+    throw new AppError("Nao foi possivel acessar o servico do Discord agora.", 502);
+  }
 
   if (!response.ok) {
-    let detail = "";
+    const rawBody = await response.text().catch(() => "");
+    let message = "";
+    let retryAfterSeconds: number | null = null;
     try {
-      const body = (await response.json()) as { message?: string };
-      detail = body.message ? ` (${body.message})` : "";
+      const body = JSON.parse(rawBody) as { message?: unknown; retry_after?: unknown };
+      if (typeof body.message === "string") message = body.message;
+      if (typeof body.retry_after === "number" && Number.isFinite(body.retry_after)) {
+        retryAfterSeconds = body.retry_after;
+      }
     } catch {
       // Mantem uma mensagem generica quando o Discord nao retornar JSON.
     }
-    throw new AppError(`O Discord recusou a criacao do chat${detail}.`, 502);
+
+    if (response.status === 429) {
+      const headerRetryAfter = Number(response.headers.get("retry-after"));
+      const retryAfter = Number.isFinite(headerRetryAfter) && headerRetryAfter > 0
+        ? headerRetryAfter
+        : retryAfterSeconds;
+      const waitMessage = retryAfter ? ` Aguarde aproximadamente ${Math.ceil(retryAfter)} segundos.` : "";
+      throw new AppError(`O Discord limitou esta operacao temporariamente.${waitMessage}`, 429);
+    }
+
+    const detail = message ? ` (${message})` : ` (HTTP ${response.status})`;
+    throw new AppError(`O Discord recusou esta operacao${detail}.`, 502);
   }
 
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+export async function sendMatchDiscordMessage(channelId: string, content: string) {
+  const token = envValue("DISCORD_BOT_TOKEN");
+  if (!token) throw new AppError("O bot do Discord ainda nao foi configurado no backend.", 503);
+
+  const validChannelId = requiredDiscordId(channelId, "ID do canal do Discord");
+  await discordRequest(token, `/channels/${validChannelId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
 }
 
 export async function createMatchDiscordChannel(match: MatchForDiscord) {
@@ -166,14 +201,12 @@ export async function createMatchDiscordChannel(match: MatchForDiscord) {
   );
 
   try {
-    await discordRequest(config.token, `/channels/${channel.id}/messages`, {
-      method: "POST",
-      body: JSON.stringify({
-        content:
-          `Chat da partida **${match.homeTeam.name} x ${match.awayTeam.name}**\n` +
-          `<@${homeCaptainId}> <@${awayCaptainId}>`,
-      }),
-    });
+    await sendMatchDiscordMessage(
+      channel.id,
+      `Chat da partida **${match.homeTeam.name} x ${match.awayTeam.name}**\n` +
+        `<@${homeCaptainId}> <@${awayCaptainId}>\n\n` +
+        "Quando os dois capitaes confirmarem presenca, a partida estara pronta para comecar.",
+    );
   } catch (error) {
     console.warn("Canal Discord criado, mas nao foi possivel enviar a mensagem inicial.", error);
   }
