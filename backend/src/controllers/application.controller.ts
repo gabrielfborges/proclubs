@@ -20,7 +20,7 @@ export const listMyApplications = asyncHandler(async (req: Request, res: Respons
     where: { team: { captainUserId: userId } },
     include: {
       team: true,
-      championship: { select: { id: true, name: true, stage: true } },
+      championship: { select: { id: true, name: true, stage: true, registrationFeeCents: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -73,11 +73,11 @@ export const requestChampionshipApplication = asyncHandler(async (req: Request, 
     ? await prisma.championshipApplication.update({
         where: { id: existing.id },
         data: { status: "PENDING", reviewedAt: null, approvedAt: null },
-        include: { team: true, championship: { select: { id: true, name: true, stage: true } } },
+        include: { team: true, championship: { select: { id: true, name: true, stage: true, registrationFeeCents: true } } },
       })
     : await prisma.championshipApplication.create({
         data: { teamId, championshipId },
-        include: { team: true, championship: { select: { id: true, name: true, stage: true } } },
+        include: { team: true, championship: { select: { id: true, name: true, stage: true, registrationFeeCents: true } } },
       });
 
   res.status(201).json(application);
@@ -93,6 +93,15 @@ export const reviewChampionshipApplication = asyncHandler(async (req: Request, r
   });
   if (!application) throw new AppError("Solicitacao nao encontrada.", 404);
   if (application.status !== "PENDING") throw new AppError("Esta solicitacao ja foi analisada.");
+
+  if (status === "APPROVED" && application.championship.registrationFeeCents > 0) {
+    const approvedPayment = await prisma.championshipPayment.findFirst({
+      where: { applicationId: application.id, status: "APPROVED" },
+    });
+    if (!approvedPayment) {
+      throw new AppError("A inscricao so pode ser aprovada depois da confirmacao do pagamento PIX.", 400);
+    }
+  }
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT "id" FROM "Championship" WHERE "id" = ${application.championshipId} FOR UPDATE`;

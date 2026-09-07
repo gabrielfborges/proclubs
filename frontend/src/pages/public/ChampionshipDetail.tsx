@@ -12,8 +12,10 @@ import {
   fetchMyApplicationsRequest,
   fetchMyTeamsRequest,
   requestChampionshipApplicationRequest,
+  fetchApplicationPaymentRequest,
+  createApplicationPaymentRequest,
 } from "../../api/championships";
-import { Championship, ChampionshipApplication, GroupStandings, Match, UserTeam, ChampionshipStatistics } from "../../types";
+import { ApplicationPayment, Championship, ChampionshipApplication, GroupStandings, Match, UserTeam, ChampionshipStatistics } from "../../types";
 import { Loading, ErrorBox } from "../../components/Loading";
 import { StatusBadge } from "../../components/StatusBadge";
 import { StandingsTable } from "../../components/StandingsTable";
@@ -44,10 +46,17 @@ export function ChampionshipDetail() {
   const [registrationSubmitting, setRegistrationSubmitting] = useState(false);
   const [registrationError, setRegistrationError] = useState("");
   const [registrationSuccess, setRegistrationSuccess] = useState("");
+  const [applicationPayment, setApplicationPayment] = useState<ApplicationPayment | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
   const [myMatches, setMyMatches] = useState<Match[]>([]);
   const [myMatchesLoading, setMyMatchesLoading] = useState(false);
   const [readyMatchId, setReadyMatchId] = useState("");
   const [readyError, setReadyError] = useState("");
+  const selectedApplication = myApplications.find(
+    (application) => application.teamId === registrationTeamId && application.championshipId === id
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -86,6 +95,21 @@ export function ChampionshipDetail() {
   }, [showRegistration, isAuthenticated, championship?.stage]);
 
   useEffect(() => {
+    if (!selectedApplication) {
+      setApplicationPayment(null);
+      setPaymentError("");
+      return;
+    }
+
+    setPaymentLoading(true);
+    setPaymentError("");
+    fetchApplicationPaymentRequest(selectedApplication.id)
+      .then(setApplicationPayment)
+      .catch((err) => setPaymentError(getApiErrorMessage(err)))
+      .finally(() => setPaymentLoading(false));
+  }, [selectedApplication?.id]);
+
+  useEffect(() => {
     if (!id || !isAuthenticated) {
       setMyMatches([]);
       return;
@@ -108,11 +132,30 @@ export function ChampionshipDetail() {
     try {
       const application = await requestChampionshipApplicationRequest(id, registrationTeamId);
       setMyApplications((current) => [application, ...current.filter((item) => item.id !== application.id)]);
-      setRegistrationSuccess("Solicitação enviada. Aguarde a análise do administrador.");
+      setRegistrationSuccess(
+        (championship?.registrationFeeCents || 0) > 0
+          ? "Solicitacao criada. Gere o PIX abaixo para concluir o pagamento."
+          : "Solicitacao enviada. Aguarde a analise do administrador."
+      );
     } catch (err) {
       setRegistrationError(getApiErrorMessage(err));
     } finally {
       setRegistrationSubmitting(false);
+    }
+  }
+
+  async function handleCreatePayment() {
+    if (!selectedApplication) return;
+
+    setPaymentSubmitting(true);
+    setPaymentError("");
+    try {
+      const payment = await createApplicationPaymentRequest(selectedApplication.id);
+      setApplicationPayment(payment);
+    } catch (err) {
+      setPaymentError(getApiErrorMessage(err));
+    } finally {
+      setPaymentSubmitting(false);
     }
   }
 
@@ -175,7 +218,12 @@ export function ChampionshipDetail() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-accent-400">Vagas abertas</p>
               <h2 className="mt-1 font-semibold">Quer participar deste campeonato?</h2>
-              <p className="mt-1 text-sm text-slate-400">Solicite sua inscrição usando um time criado por você.</p>
+              <p className="mt-1 text-sm text-slate-400">Solicite sua inscricao usando um time criado por voce.</p>
+              <p className="mt-2 text-sm font-semibold text-accent-400">
+                {championship.registrationFeeCents > 0
+                  ? "Taxa: R$ " + (championship.registrationFeeCents / 100).toFixed(2).replace(".", ",")
+                  : "Inscricao gratuita"}
+              </p>
             </div>
             {isAuthenticated ? (
               <button type="button" className="btn-primary" onClick={() => { setShowRegistration((current) => !current); setRegistrationError(""); setRegistrationSuccess(""); }}>
@@ -213,7 +261,52 @@ export function ChampionshipDetail() {
               {registrationError && <p className="mt-3 text-sm text-red-300">{registrationError}</p>}
               {registrationSuccess && <p className="mt-3 text-sm text-emerald-300">{registrationSuccess}</p>}
               {registrationTeamId && myApplications.find((application) => application.teamId === registrationTeamId && application.championshipId === id) && (
-                <p className="mt-3 text-xs text-slate-500">Este time já possui uma solicitação para este campeonato.</p>
+                <p className="mt-3 text-xs text-slate-500">Este time ja possui uma solicitacao para este campeonato.</p>
+              )}
+              {selectedApplication && championship.registrationFeeCents > 0 && (
+                <div className="mt-4 rounded-xl border border-accent-500/20 bg-accent-500/5 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-accent-400">Pagamento da inscricao</p>
+                      <p className="mt-1 text-sm text-slate-300">
+                        {applicationPayment?.status === "APPROVED"
+                          ? "Pagamento aprovado. Aguarde a analise do administrador."
+                          : applicationPayment?.status === "PENDING"
+                            ? "PIX pendente. Pague para liberar a analise da inscricao."
+                            : "Gere um PIX para pagar a taxa do campeonato."}
+                      </p>
+                    </div>
+                    {applicationPayment?.status !== "APPROVED" && (
+                      <button type="button" className="btn-primary" onClick={handleCreatePayment} disabled={paymentSubmitting || paymentLoading}>
+                        {paymentSubmitting ? "Gerando PIX..." : applicationPayment ? "Gerar novo PIX" : "Gerar PIX"}
+                      </button>
+                    )}
+                  </div>
+                  {paymentLoading && <p className="mt-3 text-xs text-slate-500">Consultando pagamento...</p>}
+                  {paymentError && <p className="mt-3 text-sm text-red-300">{paymentError}</p>}
+                  {applicationPayment?.qrCode && applicationPayment.status !== "APPROVED" && (
+                    <div className="mt-4 grid gap-4 sm:grid-cols-[auto,1fr] sm:items-center">
+                      {applicationPayment.qrCodeBase64 && (
+                        <img
+                          src={"data:image/png;base64," + applicationPayment.qrCodeBase64}
+                          alt="QR Code PIX"
+                          className="h-40 w-40 rounded-lg bg-white p-2"
+                        />
+                      )}
+                      <div>
+                        <label className="label">PIX copia e cola</label>
+                        <textarea className="input min-h-24 text-xs" readOnly value={applicationPayment.qrCode} />
+                        <button
+                          type="button"
+                          className="btn-secondary mt-2"
+                          onClick={() => void navigator.clipboard?.writeText(applicationPayment.qrCode || "")}
+                        >
+                          Copiar codigo PIX
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

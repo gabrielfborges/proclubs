@@ -10,6 +10,7 @@ const createSchema = z.object({
   maxTeams: z.number().int().min(2, "O campeonato precisa de ao menos 2 times."),
   numberOfGroups: z.number().int().min(1).default(1),
   teamsQualifyingPerGroup: z.number().int().min(1).default(2),
+  registrationFeeCents: z.number().int().min(0).max(100000000).default(0),
 });
 
 const updateSchema = createSchema.partial();
@@ -94,4 +95,38 @@ export const deleteChampionship = asyncHandler(async (req: Request, res: Respons
 
   await prisma.championship.delete({ where: { id: req.params.id } });
   res.status(204).send();
+});
+
+
+export const getAdminSummary = asyncHandler(async (_req: Request, res: Response) => {
+  const [
+    totalChampionships,
+    activeChampionships,
+    finishedChampionships,
+    totalTeams,
+    pendingApplications,
+    openDisputes,
+    scheduledMatches,
+    playedMatches,
+  ] = await Promise.all([
+    prisma.championship.count(),
+    prisma.championship.count({ where: { stage: { not: "FINISHED" } } }),
+    prisma.championship.count({ where: { stage: "FINISHED" } }),
+    prisma.team.count(),
+    prisma.championshipApplication.count({ where: { status: "PENDING" } }),
+    prisma.matchDispute.count({ where: { status: "OPEN" } }),
+    prisma.match.count({ where: { status: "SCHEDULED" } }),
+    prisma.match.count({ where: { status: "PLAYED" } }),
+  ]);
+
+  res.json({
+    totalChampionships,
+    activeChampionships,
+    finishedChampionships,
+    totalTeams,
+    pendingApplications,
+    openDisputes,
+    scheduledMatches,
+    playedMatches,
+  });
 });

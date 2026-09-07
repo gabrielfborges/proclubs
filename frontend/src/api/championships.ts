@@ -1,6 +1,11 @@
 import axios from "axios";
 import { api } from "./client";
-import { Championship, ChampionshipApplication, EaClubSearchResult, Group, GroupStandings, Match, Player, Team, User, UserTeam, ChampionshipStatistics, MatchPlayerStat } from "../types";
+import { AdminSummary, ApplicationPayment, Championship, ChampionshipApplication, EaClubSearchResult, Group, GroupStandings, Match, Player, Team, User, UserTeam, ChampionshipStatistics, MatchPlayerStat } from "../types";
+
+export async function fetchAdminSummaryRequest() {
+  const { data } = await api.get<AdminSummary>("/championships/admin/summary");
+  return data;
+}
 
 export async function fetchChampionships() {
   const { data } = await api.get<Championship[]>("/championships");
@@ -18,6 +23,7 @@ export interface ChampionshipInput {
   maxTeams: number;
   numberOfGroups: number;
   teamsQualifyingPerGroup: number;
+  registrationFeeCents?: number;
 }
 
 export async function createChampionshipRequest(input: ChampionshipInput) {
@@ -385,6 +391,20 @@ export async function createOwnTeamRequest(input: { name: string; eaClubId: stri
 }
 export async function fetchMyTeamsRequest() {
   const { data } = await api.get<UserTeam[]>("/championships/teams/mine");
+  return data;
+}
+
+export async function fetchApplicationPaymentRequest(applicationId: string) {
+  const { data } = await api.get<ApplicationPayment | null>(
+    "/championships/applications/" + applicationId + "/payment"
+  );
+  return data;
+}
+
+export async function createApplicationPaymentRequest(applicationId: string) {
+  const { data } = await api.post<ApplicationPayment>(
+    "/championships/applications/" + applicationId + "/payment"
+  );
   return data;
 }
 

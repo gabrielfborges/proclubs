@@ -53,6 +53,14 @@ enum DisputeStatus {
   REJECTED
 }
 
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
 model User {
   id           String   @id @default(uuid())
   username     String   @unique
@@ -75,6 +83,7 @@ model Championship {
   maxTeams              Int
   numberOfGroups        Int               @default(1)
   teamsQualifyingPerGroup Int             @default(2)
+  registrationFeeCents  Int               @default(0)
   stage                 ChampionshipStage @default(REGISTRATION)
   championTeamId        String?
   championTeam          Team?             @relation("ChampionTeam", fields: [championTeamId], references: [id])
@@ -125,6 +134,7 @@ model ChampionshipApplication {
 
   team           Team                         @relation(fields: [teamId], references: [id], onDelete: Cascade)
   championship   Championship                 @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+  payments       ChampionshipPayment[]
 
   @@unique([teamId, championshipId])
   @@index([championshipId, status])
@@ -262,4 +272,26 @@ model MatchPlayerStat {
 
   @@unique([matchId, playerId])
   @@index([playerId])
+}
+
+
+model ChampionshipPayment {
+  id                  String        @id @default(uuid())
+  applicationId       String
+  providerPaymentId   String?       @unique
+  idempotencyKey      String        @unique
+  status              PaymentStatus @default(PENDING)
+  amountCents         Int
+  statusDetail        String?
+  qrCode              String?
+  qrCodeBase64        String?
+  expiresAt           DateTime?
+  paidAt              DateTime?
+  lastWebhookAt       DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  application ChampionshipApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, status])
 }

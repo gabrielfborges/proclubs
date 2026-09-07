@@ -6,9 +6,11 @@ import {
   createChampionship,
   updateChampionship,
   deleteChampionship,
+  getAdminSummary,
 } from "../controllers/championship.controller";
 import { createOwnTeam, listOwnTeams, listTeams, createTeam, updateTeam, updateOwnTeam, deleteTeam } from "../controllers/team.controller";
 import { searchEaClubs } from "../controllers/ea.controller";
+import { createApplicationPayment, getApplicationPayment } from "../controllers/payment.controller";
 import { createTeamPlayer, deleteTeamPlayer, listTeamPlayers, syncTeamPlayers, syncTeamPlayersFromClient } from "../controllers/player.controller";
 import {
   listMyApplications,
@@ -56,9 +58,12 @@ router.get("/ea/clubs/search", requireAuth, searchEaClubs);
 
 // --- Solicitacoes de inscricao ---
 router.get("/applications/mine", requireAuth, listMyApplications);
+router.get("/applications/:id/payment", requireAuth, getApplicationPayment);
+router.post("/applications/:id/payment", requireAuth, createApplicationPayment);
 router.patch("/applications/:id", requireAdmin, reviewChampionshipApplication);
 
 // --- Campeonatos (publico para GET, admin para escrita) ---
+router.get("/admin/summary", requireAdmin, getAdminSummary);
 router.get("/", listChampionships);
 router.get("/:id", getChampionship);
 router.post("/", requireAdmin, createChampionship);

@@ -26,6 +26,17 @@ export interface Player {
   updatedAt: string;
 }
 
+export interface AdminSummary {
+  totalChampionships: number;
+  activeChampionships: number;
+  finishedChampionships: number;
+  totalTeams: number;
+  pendingApplications: number;
+  openDisputes: number;
+  scheduledMatches: number;
+  playedMatches: number;
+}
+
 export interface Championship {
   id: string;
   name: string;
@@ -33,6 +44,7 @@ export interface Championship {
   maxTeams: number;
   numberOfGroups: number;
   teamsQualifyingPerGroup: number;
+  registrationFeeCents: number;
   stage: ChampionshipStage;
   status: ChampionshipStatus;
   championTeamId: string | null;
@@ -83,6 +95,7 @@ export type MatchPhase = "GROUP" | "KNOCKOUT";
 export type MatchStatus = "SCHEDULED" | "PLAYED";
 export type MatchResultType = "REGULAR" | "HOME_WALKOVER" | "AWAY_WALKOVER" | "DOUBLE_WALKOVER";
 export type DisputeStatus = "OPEN" | "RESOLVED" | "REJECTED";
+export type PaymentStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "EXPIRED";
 
 export interface MatchPlayerStat {
   id: string;
@@ -185,7 +198,18 @@ export interface ChampionshipApplication {
   createdAt: string;
   updatedAt: string;
   team: Team;
-  championship?: Pick<Championship, "id" | "name" | "stage">;
+  championship?: Pick<Championship, "id" | "name" | "stage" | "registrationFeeCents">;
+  payment?: ApplicationPayment | null;
+}
+
+export interface ApplicationPayment {
+  id: string;
+  status: PaymentStatus;
+  amountCents: number;
+  qrCode: string | null;
+  qrCodeBase64: string | null;
+  expiresAt: string | null;
+  paidAt: string | null;
 }
 
 export interface UserTeam extends Team {

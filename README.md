@@ -151,3 +151,24 @@ Usuarios autenticados podem usar a aba **Criar time** para buscar o clube na EA 
 ## Segurança operacional atualizada
 
 O backend limita tentativas de login e cadastro, limita o JSON recebido a 1 MB e exige JWT_SECRET em produção. TRUST_PROXY deve permanecer false salvo quando a aplicação estiver atrás de um proxy reverso confiável. Em múltiplas instâncias, substitua o limitador em memória por Redis ou pelo gateway.
+
+### Pagamentos PIX com Mercado Pago
+
+O fluxo de inscrição paga já está preparado: o capitão gera o PIX na tela do campeonato, o backend cria o pagamento no Mercado Pago, o webhook confirma o status e o administrador só consegue aprovar a inscrição depois da confirmação.
+
+Configure estas variáveis somente no backend da Hostinger:
+
+- `MERCADO_PAGO_ACCESS_TOKEN`: Access Token privado da aplicação Mercado Pago.
+- `MERCADO_PAGO_WEBHOOK_SECRET`: chave secreta configurada no webhook.
+- `MERCADO_PAGO_WEBHOOK_URL`: URL HTTPS pública da API, por exemplo `https://api.seudominio.com/api/payments/mercadopago/webhook`.
+
+Passos para ativar em produção:
+
+1. Crie/configure a aplicação no Mercado Pago e comece usando credenciais de teste.
+2. Cadastre o webhook de pagamentos apontando para `MERCADO_PAGO_WEBHOOK_URL` e copie o segredo de assinatura.
+3. Preencha as três variáveis no `.env` do backend da Hostinger. O Access Token não deve ser colocado no frontend.
+4. Na pasta `backend`, execute `npm run prisma:deploy` usando a `DATABASE_URL` do Neon.
+5. Gere o backend (`npm run build`), reinicie a aplicação Node da Hostinger e publique o frontend atualizado.
+6. Crie um campeonato com uma taxa maior que zero e teste: inscrição → gerar PIX → pagar → receber webhook → aprovar no painel.
+
+O endpoint público do webhook é `POST /api/payments/mercadopago/webhook`. Ele valida a assinatura recebida, consulta o pagamento diretamente no Mercado Pago e confere o valor antes de atualizar o banco.
