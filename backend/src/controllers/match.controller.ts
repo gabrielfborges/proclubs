@@ -51,6 +51,7 @@ export const listMyMatches = asyncHandler(async (req: Request, res: Response) =>
       readiness: { select: { teamId: true } },
     },
     orderBy: [{ phase: "asc" }, { roundOrder: "asc" }],
+    take: 1,
   });
 
   res.json(matches.map(({ readiness, ...match }) => ({

@@ -529,11 +529,11 @@ function GroupsPanel({
   onForfeit: (matchId: string, winnerTeamId: string, reason: string) => void;
 }) {
   const [groupFilter, setGroupFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "PLAYED">("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "PLAYED">("PENDING");
   const hasPlayedMatches = matches.some((m) => m.status === "PLAYED");
   const playedCount = matches.filter((m) => m.status === "PLAYED").length;
   const pendingCount = matches.length - playedCount;
-  const filteredMatches = matches.filter((match) => {
+  const matchesInFilter = matches.filter((match) => {
     const matchesGroup = groupFilter === "ALL" || match.groupId === groupFilter;
     const matchesStatus =
       statusFilter === "ALL" ||
@@ -541,6 +541,10 @@ function GroupsPanel({
       (statusFilter === "PENDING" && match.status !== "PLAYED");
     return matchesGroup && matchesStatus;
   });
+  const nextPendingMatch = matchesInFilter.find((match) => match.status !== "PLAYED");
+  const filteredMatches = statusFilter === "PENDING"
+    ? matchesInFilter.filter((match) => match.id === nextPendingMatch?.id)
+    : matchesInFilter;
 
   return (
     <div className="space-y-6">
@@ -638,7 +642,9 @@ function GroupsPanel({
             <div>
               <h3 className="text-sm font-semibold text-slate-300">Partidas</h3>
               <p className="text-xs text-slate-500">
-                Exibindo {filteredMatches.length} de {matches.length} partida(s)
+                {statusFilter === "PENDING"
+                  ? "A proxima partida pendente e liberada apos o encerramento da anterior."
+                  : `Exibindo ${filteredMatches.length} de ${matches.length} partida(s)`}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -742,7 +748,11 @@ function KnockoutPanel({
     new Set(matches.map((match) => match.round).filter((round): round is string => Boolean(round)))
   );
   const selectedRound = roundFilter === "ALL" ? null : roundFilter === "CURRENT" ? lastRound : roundFilter;
-  const visibleMatches = matches.filter((match) => !selectedRound || match.round === selectedRound);
+  const roundMatches = matches.filter((match) => !selectedRound || match.round === selectedRound);
+  const nextPendingMatch = roundMatches.find((match) => match.status !== "PLAYED");
+  const visibleMatches = roundMatches.filter(
+    (match) => match.status === "PLAYED" || match.id === nextPendingMatch?.id
+  );
   const currentRoundMatches = matches.filter((match) => match.round === lastRound);
   const currentRoundComplete =
     currentRoundMatches.length > 0 && currentRoundMatches.every((m) => m.status === "PLAYED");
