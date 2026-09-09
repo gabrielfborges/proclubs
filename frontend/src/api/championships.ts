@@ -124,7 +124,7 @@ export async function resolveMatchDisputeRequest(disputeId: string, status: "RES
 }
 
 export async function markMatchReadyRequest(matchId: string) {
-  const { data } = await api.post<{ matchId: string; readyTeamIds: string[] }>(
+  const { data } = await api.post<{ matchId: string; readyTeamIds: string[]; discordChannelUrl: string | null }>(
     `/championships/matches/${matchId}/ready`
   );
   return data;

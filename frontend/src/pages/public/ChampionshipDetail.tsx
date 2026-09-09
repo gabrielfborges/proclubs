@@ -166,9 +166,21 @@ export function ChampionshipDetail() {
       const result = await markMatchReadyRequest(matchId);
       setMyMatches((current) =>
         current.map((match) =>
-          match.id === matchId ? { ...match, readyTeamIds: result.readyTeamIds } : match
+          match.id === matchId
+            ? {
+                ...match,
+                readyTeamIds: result.readyTeamIds,
+                discordChannelUrl: result.discordChannelUrl || match.discordChannelUrl,
+              }
+            : match
         )
       );
+      if (result.discordChannelUrl) {
+        const discordWindow = window.open(result.discordChannelUrl, "_blank", "noopener,noreferrer");
+        if (!discordWindow) {
+          setReadyError("O chat foi criado, mas o navegador bloqueou a abertura automatica. Use o botao Abrir chat no Discord.");
+        }
+      }
     } catch (err) {
       setReadyError(getApiErrorMessage(err));
     } finally {
@@ -459,6 +471,16 @@ function UpcomingMatchCard({
           <button type="button" className={myTeamReady ? "btn-secondary shrink-0" : "btn-primary shrink-0"} onClick={onReady} disabled={loading || myTeamReady}>
             {loading ? "Confirmando..." : myTeamReady ? "Seu time est� pronto" : "Estou pronto"}
           </button>
+          {match.discordChannelUrl && (
+            <a
+              href={match.discordChannelUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-secondary shrink-0"
+            >
+              Abrir chat no Discord
+            </a>
+          )}
           <button type="button" className="btn-secondary shrink-0" onClick={() => { setShowDispute((current) => !current); setDisputeError(""); }}>
             {showDispute ? "Fechar disputa" : "Abrir disputa"}
           </button>

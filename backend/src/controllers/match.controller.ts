@@ -132,7 +132,10 @@ export const markMatchReady = asyncHandler(async (req: Request, res: Response) =
 
   const match = await prisma.match.findUnique({
     where: { id: req.params.id },
-    include: { homeTeam: true, awayTeam: true },
+    include: {
+      homeTeam: { include: { captainUser: true } },
+      awayTeam: { include: { captainUser: true } },
+    },
   });
   if (!match) throw new AppError("Partida nao encontrada.", 404);
   if (match.status === "PLAYED") {
@@ -168,9 +171,46 @@ export const markMatchReady = asyncHandler(async (req: Request, res: Response) =
       readyTeamIds.includes(match.awayTeamId)
   );
 
-  if (!previousReadiness && bothTeamsReady && match.discordChannelId && match.homeTeam && match.awayTeam) {
+  let discordChannelId = match.discordChannelId;
+  let discordChannelUrl = match.discordChannelUrl;
+  let createdChannelForThisRequest = false;
+
+  if (bothTeamsReady && !discordChannelId && !discordChannelUrl && match.homeTeam && match.awayTeam) {
+    let channelPromise = pendingDiscordChannelCreations.get(match.id);
+    if (!channelPromise) {
+      channelPromise = createMatchDiscordChannel(match);
+      pendingDiscordChannelCreations.set(match.id, channelPromise);
+      createdChannelForThisRequest = true;
+    }
+
+    try {
+      const channel = await channelPromise;
+      const updated = await prisma.match.update({
+        where: { id: match.id },
+        data: {
+          discordChannelId: channel.id,
+          discordChannelUrl: channel.url,
+          startedAt: match.startedAt ?? new Date(),
+        },
+      });
+      discordChannelId = updated.discordChannelId;
+      discordChannelUrl = updated.discordChannelUrl;
+    } catch (error) {
+      console.warn("Os dois times confirmaram presenca, mas nao foi possivel criar o chat no Discord.", error);
+      createdChannelForThisRequest = false;
+    } finally {
+      if (pendingDiscordChannelCreations.get(match.id) === channelPromise) {
+        pendingDiscordChannelCreations.delete(match.id);
+      }
+    }
+  }
+
+  const shouldAnnounceReady = bothTeamsReady && Boolean(discordChannelId) && Boolean(discordChannelUrl) && (
+    createdChannelForThisRequest || (!previousReadiness && Boolean(match.discordChannelId))
+  );
+  if (shouldAnnounceReady && match.homeTeam && match.awayTeam) {
     void sendMatchDiscordMessage(
-      match.discordChannelId,
+      discordChannelId!,
       `Os capitaes de **${match.homeTeam.name}** e **${match.awayTeam.name}** confirmaram presenca. A partida esta pronta para comecar.`,
     ).catch((error) => {
       console.warn("Presenca confirmada, mas nao foi possivel avisar no Discord.", error);
@@ -180,9 +220,9 @@ export const markMatchReady = asyncHandler(async (req: Request, res: Response) =
   res.json({
     matchId: match.id,
     readyTeamIds,
+    discordChannelUrl,
   });
 });
-
 
 export const listMatchDisputes = asyncHandler(async (req: Request, res: Response) => {
   const match = await prisma.match.findUnique({

@@ -324,10 +324,12 @@ function TeamsPanel({
   const [eaClubId, setEaClubId] = useState("");
   const [captainUserId, setCaptainUserId] = useState("");
   const canAdd = championship.stage === "REGISTRATION" && teams.length < championship.maxTeams;
+  const hasCaptainWithDiscord = users.some((user) => Boolean(user.discordId));
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !eaClubId.trim() || !captainUserId.trim()) return;
+    const captain = users.find((user) => user.id === captainUserId);
+    if (!name.trim() || !eaClubId.trim() || !captain?.discordId) return;
     onAdd(name.trim(), logoUrl.trim(), eaClubId.trim(), captainUserId.trim());
     setName("");
     setLogoUrl("");
@@ -362,8 +364,8 @@ function TeamsPanel({
             <select className="input" value={captainUserId} onChange={(e) => setCaptainUserId(e.target.value)} required>
               <option value="">Selecione um usuario</option>
               {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.username}
+                <option key={user.id} value={user.id} disabled={!user.discordId}>
+                  {user.username}{user.discordId ? " · Discord vinculado" : " · Discord nao vinculado"}
                 </option>
               ))}
             </select>
@@ -372,10 +374,13 @@ function TeamsPanel({
             <label className="label">URL do escudo (opcional)</label>
             <input className="input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
           </div>
-          <button type="submit" className="btn-primary sm:col-span-2 lg:col-span-1" disabled={disabled}>
+          <button type="submit" className="btn-primary sm:col-span-2 lg:col-span-1" disabled={disabled || !hasCaptainWithDiscord}>
             Adicionar time
           </button>
         </form>
+      )}
+      {canAdd && !hasCaptainWithDiscord && (
+        <p className="text-sm text-amber-300">Nenhum usuario com Discord vinculado pode ser selecionado como capitao.</p>
       )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -4,8 +4,11 @@ import { createOwnTeamRequest, searchEaClubsRequest } from "../../api/championsh
 import { getApiErrorMessage } from "../../api/client";
 import { EaClubSearchResult, Team } from "../../types";
 import { ErrorBox } from "../../components/Loading";
+import { useAuth } from "../../context/AuthContext";
 
 export function CreateTeam() {
+  const { user } = useAuth();
+  const hasDiscord = Boolean(user?.discordId);
   const [teamName, setTeamName] = useState("");
   const [clubs, setClubs] = useState<EaClubSearchResult[]>([]);
   const [selectedClub, setSelectedClub] = useState<EaClubSearchResult | null>(null);
@@ -58,6 +61,10 @@ export function CreateTeam() {
   }
 
   async function handleCreate() {
+    if (!hasDiscord) {
+      setError("Vincule sua conta ao Discord antes de criar um time.");
+      return;
+    }
     if (!selectedClub || teamName.trim().length < 2) return;
 
     setSubmitting(true);
@@ -184,10 +191,15 @@ export function CreateTeam() {
               </dl>
             </div>
 
+            {!hasDiscord && (
+              <div className="mt-5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+                Vincule sua conta ao Discord pelo menu lateral antes de criar um time.
+              </div>
+            )}
             <button
               type="button"
               className="btn-primary mt-5 w-full"
-              disabled={submitting || !selectedClub || teamName.trim().length < 2}
+              disabled={!hasDiscord || submitting || !selectedClub || teamName.trim().length < 2}
               onClick={handleCreate}
             >
               {submitting ? "Criando time..." : "Confirmar e criar time"}

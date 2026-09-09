@@ -52,6 +52,9 @@ export const createTeam = asyncHandler(async (req: Request, res: Response) => {
 
   const captain = await prisma.user.findUnique({ where: { id: data.captainUserId } });
   if (!captain) throw new AppError("Usuario do capitao nao encontrado.", 400);
+  if (!captain.discordId) {
+    throw new AppError("O capitao precisa vincular o Discord antes de criar o time.", 400);
+  }
 
   const team = await prisma.$transaction(async (tx) => {
     const createdTeam = await tx.team.create({
@@ -138,6 +141,14 @@ export const createOwnTeam = asyncHandler(async (req: Request, res: Response) =>
   const data = selfCreateSchema.parse(req.body);
   const captainUserId = req.user?.id;
   if (!captainUserId) throw new AppError("Usuario nao autenticado.", 401);
+
+  const captain = await prisma.user.findUnique({
+    where: { id: captainUserId },
+    select: { discordId: true },
+  });
+  if (!captain?.discordId) {
+    throw new AppError("Vincule sua conta ao Discord antes de criar um time.", 400);
+  }
 
   const existing = await prisma.team.findFirst({
     where: { captainUserId, name: data.name, championshipId: null },
