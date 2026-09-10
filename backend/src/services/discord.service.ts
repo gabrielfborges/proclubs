@@ -16,6 +16,12 @@ type DiscordChannel = {
   id: string;
 };
 
+type MatchForAdminLog = {
+  id: string;
+  homeTeam: { name: string } | null;
+  awayTeam: { name: string } | null;
+};
+
 const DISCORD_API = "https://discord.com/api/v10";
 const VIEW_CHANNEL = 1 << 10;
 const SEND_MESSAGES = 1 << 11;
@@ -143,6 +149,18 @@ export async function sendMatchDiscordMessage(channelId: string, content: string
     method: "POST",
     body: JSON.stringify({ content }),
   });
+}
+
+export async function sendAdminMatchStartMessage(match: MatchForAdminLog) {
+  const adminLogChannelId = envValue("DISCORD_ADMIN_LOG_CHANNEL_ID");
+  if (!adminLogChannelId) return;
+
+  const homeTeam = match.homeTeam?.name || "Time da casa";
+  const awayTeam = match.awayTeam?.name || "Time visitante";
+  await sendMatchDiscordMessage(
+    adminLogChannelId,
+    `🟢 Partida iniciada: **${homeTeam} x ${awayTeam}**\nID da partida: \`${match.id}\``,
+  );
 }
 
 export async function createMatchDiscordChannel(match: MatchForDiscord) {

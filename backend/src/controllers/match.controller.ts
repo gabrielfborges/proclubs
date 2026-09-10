@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../prisma";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { findLatestEaMatch, findLatestEaMatchFromPayloads } from "../services/ea-clubs.service";
-import { createMatchDiscordChannel, sendMatchDiscordMessage } from "../services/discord.service";
+import { createMatchDiscordChannel, sendAdminMatchStartMessage, sendMatchDiscordMessage } from "../services/discord.service";
 
 const pendingDiscordChannelCreations = new Map<string, Promise<{ id: string; url: string }>>();
 
@@ -195,6 +195,11 @@ export const markMatchReady = asyncHandler(async (req: Request, res: Response) =
       });
       discordChannelId = updated.discordChannelId;
       discordChannelUrl = updated.discordChannelUrl;
+      if (createdChannelForThisRequest) {
+        void sendAdminMatchStartMessage(match).catch((error) => {
+          console.warn("A partida iniciou, mas nao foi possivel avisar o log administrativo do Discord.", error);
+        });
+      }
     } catch (error) {
       console.warn("Os dois times confirmaram presenca, mas nao foi possivel criar o chat no Discord.", error);
       createdChannelForThisRequest = false;
@@ -369,9 +374,11 @@ export const startMatch = asyncHandler(async (req: Request, res: Response) => {
   }
 
   let channelPromise = pendingDiscordChannelCreations.get(match.id);
+  let createdChannelForThisRequest = false;
   if (!channelPromise) {
     channelPromise = createMatchDiscordChannel(match);
     pendingDiscordChannelCreations.set(match.id, channelPromise);
+    createdChannelForThisRequest = true;
   }
 
   let channel: { id: string; url: string };
@@ -397,6 +404,12 @@ export const startMatch = asyncHandler(async (req: Request, res: Response) => {
       playerStats: { include: { player: true }, orderBy: { player: { name: "asc" } } },
     },
   });
+
+  if (createdChannelForThisRequest) {
+    void sendAdminMatchStartMessage(updated).catch((error) => {
+      console.warn("A partida iniciou, mas nao foi possivel avisar o log administrativo do Discord.", error);
+    });
+  }
 
   res.json(updated);
 });

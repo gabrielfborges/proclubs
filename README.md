@@ -59,8 +59,11 @@ cp .env.example .env
 npm install
 npm run prisma:migrate      # cria as tabelas no banco (pede um nome para a migration, ex: init)
 npm run seed                # cria o usuário administrador definido no .env
+npm run seed:test           # cria 8 contas, 8 times e inscrições aprovadas para teste
 npm run dev                 # inicia a API em http://localhost:3333
 ```
+
+A seed de teste cria o campeonato gratuito **Campeonato de Teste - 8 Times**. As contas usam os usuários `teste1` até `teste8`, todas com a senha `teste123` (ou o valor definido em `TEST_ACCOUNT_PASSWORD`). Os Discord IDs criados pela seed são fictícios e servem apenas para validar o vínculo com o Discord no sistema.
 
 Variáveis do `.env` (veja `backend/.env.example`):
 
@@ -73,6 +76,7 @@ Variáveis do `.env` (veja `backend/.env.example`):
 | `ADMIN_USERNAME`| Usuário do administrador criado pelo `npm run seed`           |
 | `ADMIN_PASSWORD`| Senha do administrador criado pelo `npm run seed`             |
 | `FRONTEND_URL`  | Origem liberada no CORS (URL do frontend)                     |
+| `DISCORD_ADMIN_LOG_CHANNEL_ID` | Canal do Discord que recebe os avisos de partidas iniciadas |
 
 ## 3. Frontend
 
