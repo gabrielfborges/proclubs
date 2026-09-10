@@ -43,6 +43,44 @@ async function getCaptainApplication(req: Request) {
   return application;
 }
 
+async function approveApplicationAfterPayment(applicationId: string) {
+  return prisma.$transaction(async (tx) => {
+    const application = await tx.championshipApplication.findUnique({
+      where: { id: applicationId },
+      select: { id: true, teamId: true, championshipId: true, status: true },
+    });
+    if (!application || application.status !== "PENDING") return false;
+
+    await tx.$queryRaw`SELECT "id" FROM "Championship" WHERE "id" = ${application.championshipId} FOR UPDATE`;
+
+    const currentApplication = await tx.championshipApplication.findUnique({
+      where: { id: application.id },
+      include: { championship: true },
+    });
+    if (!currentApplication || currentApplication.status !== "PENDING") return false;
+    if (currentApplication.championship.stage !== "REGISTRATION") return false;
+
+    const approvedCount = await tx.championshipApplication.count({
+      where: { championshipId: currentApplication.championshipId, status: "APPROVED" },
+    });
+    if (approvedCount >= currentApplication.championship.maxTeams) return false;
+
+    await tx.championshipApplication.updateMany({
+      where: {
+        teamId: currentApplication.teamId,
+        status: "PENDING",
+        id: { not: currentApplication.id },
+      },
+      data: { status: "REJECTED", reviewedAt: new Date() },
+    });
+
+    await tx.championshipApplication.update({
+      where: { id: currentApplication.id },
+      data: { status: "APPROVED", reviewedAt: new Date(), approvedAt: new Date() },
+    });
+    return true;
+  });
+}
 export const getApplicationPayment = asyncHandler(async (req: Request, res: Response) => {
   const application = await getCaptainApplication(req);
   const payment = await prisma.championshipPayment.findFirst({
@@ -70,7 +108,10 @@ export const createApplicationPayment = asyncHandler(async (req: Request, res: R
     where: { applicationId: application.id, status: "APPROVED" },
     orderBy: { createdAt: "desc" },
   });
-  if (existingApproved) return res.json(publicPayment(existingApproved));
+  if (existingApproved) {
+    await approveApplicationAfterPayment(application.id);
+    return res.json(publicPayment(existingApproved));
+  }
 
   const now = new Date();
   const existingPending = await prisma.championshipPayment.findFirst({
@@ -122,6 +163,9 @@ export const createApplicationPayment = asyncHandler(async (req: Request, res: R
         paidAt: mapMercadoPagoStatus(remotePayment.status) === "APPROVED" ? new Date() : null,
       },
     });
+    if (updated.status === "APPROVED") {
+      await approveApplicationAfterPayment(application.id);
+    }
     return res.status(201).json(publicPayment(updated));
   } catch (error) {
     await prisma.championshipPayment.update({
@@ -218,6 +262,10 @@ export const mercadoPagoWebhook = asyncHandler(async (req: Request, res: Respons
       lastWebhookAt: new Date(),
     },
   });
+
+  if (nextStatus === "APPROVED") {
+    await approveApplicationAfterPayment(localPayment.applicationId);
+  }
 
   return res.sendStatus(200);
 });

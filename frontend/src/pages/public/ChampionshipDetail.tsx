@@ -101,13 +101,48 @@ export function ChampionshipDetail() {
       return;
     }
 
-    setPaymentLoading(true);
+    const application = selectedApplication;
+    const registrationFeeCents = championship?.registrationFeeCents || 0;
+    let cancelled = false;
+    const shouldPoll = registrationFeeCents > 0 && application.status === "PENDING";
+
+    async function refreshApplicationStatus(initial: boolean) {
+      if (initial) setPaymentLoading(true);
+      try {
+        const [payment, applications] = await Promise.all([
+          fetchApplicationPaymentRequest(application.id),
+          fetchMyApplicationsRequest(),
+        ]);
+        if (cancelled) return;
+
+        setApplicationPayment(payment);
+        const updatedApplication = applications.find((item) => item.id === application.id);
+        if (updatedApplication) {
+          setMyApplications(applications);
+          if (application.status === "PENDING" && updatedApplication.status === "APPROVED") {
+            setRegistrationSuccess("Inscricao aprovada automaticamente apos a confirmacao do pagamento.");
+          } else if (updatedApplication.status === "APPROVED" && payment?.status === "APPROVED") {
+            setRegistrationSuccess("Inscricao aprovada apos a confirmacao do pagamento.");
+          }
+        }
+      } catch (err) {
+        if (!cancelled) setPaymentError(getApiErrorMessage(err));
+      } finally {
+        if (!cancelled && initial) setPaymentLoading(false);
+      }
+    }
+
     setPaymentError("");
-    fetchApplicationPaymentRequest(selectedApplication.id)
-      .then(setApplicationPayment)
-      .catch((err) => setPaymentError(getApiErrorMessage(err)))
-      .finally(() => setPaymentLoading(false));
-  }, [selectedApplication?.id]);
+    void refreshApplicationStatus(true);
+    const intervalId = shouldPoll
+      ? window.setInterval(() => void refreshApplicationStatus(false), 5000)
+      : undefined;
+
+    return () => {
+      cancelled = true;
+      if (intervalId !== undefined) window.clearInterval(intervalId);
+    };
+  }, [championship?.registrationFeeCents, selectedApplication?.id, selectedApplication?.status]);
 
   useEffect(() => {
     if (!id || !isAuthenticated) {
@@ -281,9 +316,11 @@ export function ChampionshipDetail() {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-accent-400">Pagamento da inscricao</p>
                       <p className="mt-1 text-sm text-slate-300">
-                        {applicationPayment?.status === "APPROVED"
-                          ? "Pagamento aprovado. Aguarde a analise do administrador."
-                          : applicationPayment?.status === "PENDING"
+                        {selectedApplication.status === "APPROVED"
+                          ? "Inscricao aprovada automaticamente apos a confirmacao do pagamento."
+                          : applicationPayment?.status === "APPROVED"
+                            ? "Pagamento aprovado. A inscricao sera aprovada automaticamente."
+                            : applicationPayment?.status === "PENDING"
                             ? "PIX pendente. Pague para liberar a analise da inscricao."
                             : "Gere um PIX para pagar a taxa do campeonato."}
                       </p>
