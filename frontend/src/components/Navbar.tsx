@@ -95,10 +95,7 @@ export function Navbar() {
         onClick={() => setMobileMenuOpen(false)}
       >
         <SidebarLink to="/" label="Hub" icon="home" end />
-        <Link to="/" className={`nav-item ${location.pathname === "/" ? "nav-item-muted" : ""}`}>
-          <NavIcon name="compass" />
-          <span>Descobrir</span>
-        </Link>
+        <SidebarLink to="/campeonatos" label="Campeonatos" icon="compass" />
         <SidebarLink to="/comunidade" label="Comunidade" icon="users" />
         {isAuthenticated && <SidebarLink to="/perfil" label="Meu perfil" icon="user" />}
         {isAuthenticated && <SidebarLink to="/times" label="Meu time" icon="edit" />}
@@ -120,8 +117,8 @@ export function Navbar() {
               <p className="truncate text-sm font-semibold text-slate-100">{user?.username}</p>
               <p className="truncate text-[11px] text-slate-500">{user?.email || "Conta verificada"}</p>
             </div>
+            <button onClick={handleLogout} className="account-logout" title="Sair" aria-label="Sair">×</button>
             <span className="online-dot" title="Online" />
-            <button onClick={handleLogout} className="account-logout" title="Sair">×</button>
           </div>
         ) : (
           <div className="account-actions">

@@ -224,7 +224,7 @@ export function ChampionshipDetail() {
   }
 
   if (loading) return <Loading label="Carregando campeonato..." />;
-  if (error) return <div className="mx-auto max-w-6xl px-4 py-8"><ErrorBox message={error} /></div>;
+  if (error) return <div className="championship-detail-page mx-auto max-w-6xl px-4 py-10"><ErrorBox message={error} /></div>;
   if (!championship) return null;
 
   const tabs: { key: TabKey; label: string }[] = [
@@ -236,12 +236,12 @@ export function ChampionshipDetail() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="championship-detail-page mx-auto max-w-6xl px-4 py-10">
       <Link to="/" className="mb-4 inline-block text-sm text-slate-400 hover:text-accent-400">
         ← Voltar para campeonatos
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+      <div className="championship-heading card mb-6 flex flex-wrap items-start justify-between gap-3 p-6">
         <div>
           <div className="mb-1 flex items-center gap-3">
             <h1 className="text-2xl font-bold">{championship.name}</h1>

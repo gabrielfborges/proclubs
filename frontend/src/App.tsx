@@ -3,6 +3,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { Navbar } from "./components/Navbar";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/public/Dashboard";
+import { Championships } from "./pages/public/Championships";
 import { ChampionshipDetail } from "./pages/public/ChampionshipDetail";
 import { Community } from "./pages/public/Community";
 import { Login } from "./pages/admin/Login";
@@ -23,6 +24,7 @@ export default function App() {
           <Navbar />
           <main className="app-main"><Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/campeonatos" element={<Championships />} />
             <Route path="/campeonatos/:id" element={<ChampionshipDetail />} />
             <Route path="/comunidade" element={<Community />} />
             <Route path="/login" element={<Login />} />
