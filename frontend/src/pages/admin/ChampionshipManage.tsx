@@ -19,7 +19,6 @@ import {
   fetchMatchPlayerStatsFromEaRequest,
   updateMatchPlayerStatsRequest,
   resetMatchScoreRequest,
-  startMatchRequest,
   fetchKnockoutBracket,
   fetchKnockoutReadiness,
   generateKnockoutRequest,
@@ -32,6 +31,7 @@ import { Loading, ErrorBox } from "../../components/Loading";
 import { StatusBadge } from "../../components/StatusBadge";
 import { BracketView } from "../../components/BracketView";
 import { getApiErrorMessage } from "../../api/client";
+import { MatchChat } from "../../components/MatchChat";
 
 type TabKey = "teams" | "applications" | "groups" | "knockout" | "stats" | "disputes";
 
@@ -190,7 +190,6 @@ export function ChampionshipManage() {
             )
           }
           onResetScore={(matchId) => runAction(() => resetMatchScoreRequest(matchId))}
-          onStartChat={(matchId) => runAction(() => startMatchRequest(matchId))}
         />
       )}
 
@@ -238,7 +237,6 @@ export function ChampionshipManage() {
             )
           }
           onResetScore={(matchId) => runAction(() => resetMatchScoreRequest(matchId))}
-          onStartChat={(matchId) => runAction(() => startMatchRequest(matchId))}
         />
       )}
     </div>
@@ -516,7 +514,6 @@ function GroupsPanel({
   onSaveScore,
   onResetScore,
   onFetchScore,
-  onStartChat,
   onSchedule,
   onForfeit,
 }: {
@@ -529,7 +526,6 @@ function GroupsPanel({
   onSaveScore: (matchId: string, home: number, away: number) => void;
   onResetScore: (matchId: string) => void;
   onFetchScore: (match: Match) => void;
-  onStartChat: (matchId: string) => void;
   onSchedule: (matchId: string, scheduledAt: string | null) => void;
   onForfeit: (matchId: string, winnerTeamId: string, reason: string) => void;
 }) {
@@ -688,7 +684,6 @@ function GroupsPanel({
                   onSave={(home, away) => onSaveScore(match.id, home, away)}
                   onReset={() => onResetScore(match.id)}
                   onFetchScore={() => onFetchScore(match)}
-                    onStartChat={() => onStartChat(match.id)}
                   onSchedule={(matchId, scheduledAt) => onSchedule(matchId, scheduledAt)}
                   onForfeit={(matchId, winnerTeamId, reason) => onForfeit(matchId, winnerTeamId, reason)}
                 />
@@ -724,7 +719,6 @@ function KnockoutPanel({
   onSaveScore,
   onResetScore,
   onFetchScore,
-  onStartChat,
   onSchedule,
   onForfeit,
 }: {
@@ -743,7 +737,6 @@ function KnockoutPanel({
   ) => void;
   onResetScore: (matchId: string) => void;
   onFetchScore: (match: Match) => void;
-  onStartChat: (matchId: string) => void;
   onSchedule: (matchId: string, scheduledAt: string | null) => void;
   onForfeit: (matchId: string, winnerTeamId: string, reason: string) => void;
 }) {
@@ -862,7 +855,6 @@ function KnockoutPanel({
                     }
                     onReset={() => onResetScore(match.id)}
                     onFetchScore={() => onFetchScore(match)}
-                    onStartChat={() => onStartChat(match.id)}
                     onSchedule={(matchId, scheduledAt) => onSchedule(matchId, scheduledAt)}
                     onForfeit={(matchId, winnerTeamId, reason) => onForfeit(matchId, winnerTeamId, reason)}
                   />
@@ -913,7 +905,6 @@ function MatchScoreRow({
   onSave,
   onReset,
   onFetchScore,
-  onStartChat,
   onSchedule,
   onForfeit,
 }: {
@@ -924,7 +915,6 @@ function MatchScoreRow({
   onSave: (home: number, away: number, penHome?: number, penAway?: number) => void;
   onReset: () => void;
   onFetchScore?: () => void;
-  onStartChat?: () => void;
   onSchedule: (matchId: string, scheduledAt: string | null) => void;
   onForfeit: (matchId: string, winnerTeamId: string, reason: string) => void;
 }) {
@@ -1099,26 +1089,8 @@ function MatchScoreRow({
               }}>W.O. fora</button>
             </div>
           )}
-          {match.discordChannelUrl ? (
-            <a
-              href={match.discordChannelUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="btn-secondary !py-2 !px-3 text-xs"
-            >
-              Abrir chat no Discord
-            </a>
-          ) : onStartChat && match.homeTeam?.captainUser && match.awayTeam?.captainUser ? (
-            <button
-              type="button"
-              className="btn-primary !py-2 !px-3 text-xs"
-              disabled={disabled}
-              onClick={onStartChat}
-              title="Cria um canal privado no Discord para os dois capitães"
-            >
-              Começar partida
-            </button>
-          ) : null}
+          <MatchChat matchId={match.id} matchStatus={match.status} compact />
+
           {onFetchScore && match.homeTeam?.eaClubId && match.awayTeam?.eaClubId && (
             <button
               type="button"

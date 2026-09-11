@@ -146,6 +146,20 @@ export interface MatchDispute {
   match?: Pick<Match, "id" | "homeTeam" | "awayTeam">;
 }
 
+export interface MatchChatMessage {
+  id: string;
+  matchId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  user: Pick<User, "id" | "username" | "role">;
+}
+
+export interface MatchChatResponse {
+  matchId: string;
+  locked: boolean;
+  messages: MatchChatMessage[];
+}
 export interface Match {
   id: string;
   championshipId: string;

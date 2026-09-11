@@ -35,7 +35,6 @@ import {
   fetchMatchPlayerStatsFromEa,
   fetchMatchPlayerStatsFromEaClient,
   updateMatchPlayerStats,
-  startMatch,
   scheduleMatch,
   forfeitMatch,
   listMatchDisputes,
@@ -50,6 +49,7 @@ import {
   postAdvanceKnockout,
 } from "../controllers/knockout.controller";
 import { getChampionshipStatistics } from "../controllers/statistics.controller";
+import { listMatchChat, sendMatchChatMessage } from "../controllers/chat.controller";
 
 const router = Router();
 
@@ -99,6 +99,8 @@ router.get("/:championshipId/disputes", requireAdmin, listChampionshipDisputes);
 router.get("/:championshipId/matches", listMatches);
 router.get("/:championshipId/matches/mine", requireAuth, listMyMatches);
 router.post("/matches/:id/ready", requireAuth, markMatchReady);
+router.get("/matches/:id/chat", requireAuth, listMatchChat);
+router.post("/matches/:id/chat", requireAuth, sendMatchChatMessage);
 router.patch("/matches/:id/schedule", requireAdmin, scheduleMatch);
 router.post("/matches/:id/forfeit", requireAdmin, forfeitMatch);
 router.get("/matches/:id/disputes", requireAuth, listMatchDisputes);
@@ -110,7 +112,6 @@ router.post("/matches/:id/score/ea-client", requireAdmin, fetchMatchScoreFromEaC
 router.put("/matches/:id/player-stats", requireAdmin, updateMatchPlayerStats);
 router.post("/matches/:id/player-stats/ea", requireAdmin, fetchMatchPlayerStatsFromEa);
 router.post("/matches/:id/player-stats/ea-client", requireAdmin, fetchMatchPlayerStatsFromEaClient);
-router.post("/matches/:id/start", requireAdmin, startMatch);
 router.post("/matches/:id/reset", requireAdmin, resetMatchScore);
 
 // --- Mata-mata ---

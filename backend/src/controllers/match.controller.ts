@@ -3,9 +3,7 @@ import { z } from "zod";
 import { prisma } from "../prisma";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { findLatestEaMatch, findLatestEaMatchFromPayloads } from "../services/ea-clubs.service";
-import { createMatchDiscordChannel, sendAdminMatchStartMessage, sendMatchDiscordMessage } from "../services/discord.service";
-
-const pendingDiscordChannelCreations = new Map<string, Promise<{ id: string; url: string }>>();
+import { sendAdminMatchStartMessage } from "../services/discord.service";
 
 export const listMatches = asyncHandler(async (req: Request, res: Response) => {
   const { phase, groupId } = req.query;
@@ -149,9 +147,7 @@ export const markMatchReady = asyncHandler(async (req: Request, res: Response) =
     throw new AppError("Somente o capitao de um dos times pode confirmar presenca.", 403);
   }
 
-  const previousReadiness = await prisma.matchReadiness.findUnique({
-    where: { matchId_teamId: { matchId: match.id, teamId: team.id } },
-  });
+
 
   await prisma.matchReadiness.upsert({
     where: { matchId_teamId: { matchId: match.id, teamId: team.id } },
@@ -171,61 +167,33 @@ export const markMatchReady = asyncHandler(async (req: Request, res: Response) =
       readyTeamIds.includes(match.awayTeamId)
   );
 
-  let discordChannelId = match.discordChannelId;
-  let discordChannelUrl = match.discordChannelUrl;
-  let createdChannelForThisRequest = false;
-
-  if (bothTeamsReady && !discordChannelId && !discordChannelUrl && match.homeTeam && match.awayTeam) {
-    let channelPromise = pendingDiscordChannelCreations.get(match.id);
-    if (!channelPromise) {
-      channelPromise = createMatchDiscordChannel(match);
-      pendingDiscordChannelCreations.set(match.id, channelPromise);
-      createdChannelForThisRequest = true;
-    }
-
-    try {
-      const channel = await channelPromise;
-      const updated = await prisma.match.update({
-        where: { id: match.id },
-        data: {
-          discordChannelId: channel.id,
-          discordChannelUrl: channel.url,
-          startedAt: match.startedAt ?? new Date(),
-        },
-      });
-      discordChannelId = updated.discordChannelId;
-      discordChannelUrl = updated.discordChannelUrl;
-      if (createdChannelForThisRequest) {
-        void sendAdminMatchStartMessage(match).catch((error) => {
-          console.warn("A partida iniciou, mas nao foi possivel avisar o log administrativo do Discord.", error);
-        });
-      }
-    } catch (error) {
-      console.warn("Os dois times confirmaram presenca, mas nao foi possivel criar o chat no Discord.", error);
-      createdChannelForThisRequest = false;
-    } finally {
-      if (pendingDiscordChannelCreations.get(match.id) === channelPromise) {
-        pendingDiscordChannelCreations.delete(match.id);
-      }
-    }
-  }
-
-  const shouldAnnounceReady = bothTeamsReady && Boolean(discordChannelId) && Boolean(discordChannelUrl) && (
-    createdChannelForThisRequest || (!previousReadiness && Boolean(match.discordChannelId))
-  );
-  if (shouldAnnounceReady && match.homeTeam && match.awayTeam) {
-    void sendMatchDiscordMessage(
-      discordChannelId!,
-      `Os capitaes de **${match.homeTeam.name}** e **${match.awayTeam.name}** confirmaram presenca. A partida esta pronta para comecar.`,
-    ).catch((error) => {
-      console.warn("Presenca confirmada, mas nao foi possivel avisar no Discord.", error);
+  let startedAt = match.startedAt;
+  if (bothTeamsReady && !startedAt) {
+    const startedNow = new Date();
+    const started = await prisma.match.updateMany({
+      where: { id: match.id, startedAt: null },
+      data: { startedAt: startedNow },
     });
+    if (started.count > 0) {
+      startedAt = startedNow;
+      try {
+        await sendAdminMatchStartMessage(match);
+      } catch {
+        // O log do Discord e opcional e nao pode impedir o inicio da partida.
+      }
+    } else {
+      const currentMatch = await prisma.match.findUnique({
+        where: { id: match.id },
+        select: { startedAt: true },
+      });
+      startedAt = currentMatch?.startedAt ?? startedAt;
+    }
   }
 
   res.json({
     matchId: match.id,
     readyTeamIds,
-    discordChannelUrl,
+    startedAt,
   });
 });
 
@@ -358,60 +326,6 @@ export const updateMatchPlayerStats = asyncHandler(async (req: Request, res: Res
     orderBy: { player: { name: "asc" } },
   });
   res.json(stats);
-});
-export const startMatch = asyncHandler(async (req: Request, res: Response) => {
-  const match = await prisma.match.findUnique({
-    where: { id: req.params.id },
-    include: {
-      homeTeam: { include: { captainUser: true } },
-      awayTeam: { include: { captainUser: true } },
-    },
-  });
-  if (!match) throw new AppError("Partida nao encontrada.", 404);
-
-  if (match.discordChannelId && match.discordChannelUrl) {
-    return res.json(match);
-  }
-
-  let channelPromise = pendingDiscordChannelCreations.get(match.id);
-  let createdChannelForThisRequest = false;
-  if (!channelPromise) {
-    channelPromise = createMatchDiscordChannel(match);
-    pendingDiscordChannelCreations.set(match.id, channelPromise);
-    createdChannelForThisRequest = true;
-  }
-
-  let channel: { id: string; url: string };
-  try {
-    channel = await channelPromise;
-  } finally {
-    if (pendingDiscordChannelCreations.get(match.id) === channelPromise) {
-      pendingDiscordChannelCreations.delete(match.id);
-    }
-  }
-
-  const updated = await prisma.match.update({
-    where: { id: match.id },
-    data: {
-      discordChannelId: channel.id,
-      discordChannelUrl: channel.url,
-      startedAt: new Date(),
-    },
-    include: {
-      homeTeam: { include: { captainUser: { select: { id: true, username: true } } } },
-      awayTeam: { include: { captainUser: { select: { id: true, username: true } } } },
-      group: true,
-      playerStats: { include: { player: true }, orderBy: { player: { name: "asc" } } },
-    },
-  });
-
-  if (createdChannelForThisRequest) {
-    void sendAdminMatchStartMessage(updated).catch((error) => {
-      console.warn("A partida iniciou, mas nao foi possivel avisar o log administrativo do Discord.", error);
-    });
-  }
-
-  res.json(updated);
 });
 const scoreSchema = z.object({
   homeScore: z.number().int().min(0),

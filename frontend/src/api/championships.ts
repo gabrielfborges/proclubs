@@ -124,9 +124,19 @@ export async function resolveMatchDisputeRequest(disputeId: string, status: "RES
 }
 
 export async function markMatchReadyRequest(matchId: string) {
-  const { data } = await api.post<{ matchId: string; readyTeamIds: string[]; discordChannelUrl: string | null }>(
+  const { data } = await api.post<{ matchId: string; readyTeamIds: string[]; startedAt: string | null }>(
     `/championships/matches/${matchId}/ready`
   );
+  return data;
+}
+
+export async function fetchMatchChatRequest(matchId: string) {
+  const { data } = await api.get<import("../types").MatchChatResponse>(`/championships/matches/${matchId}/chat`);
+  return data;
+}
+
+export async function sendMatchChatMessageRequest(matchId: string, content: string) {
+  const { data } = await api.post<import("../types").MatchChatMessage>(`/championships/matches/${matchId}/chat`, { content });
   return data;
 }
 
@@ -198,10 +208,7 @@ export async function resetMatchScoreRequest(matchId: string) {
   return data;
 }
 
-export async function startMatchRequest(matchId: string) {
-  const { data } = await api.post<Match>(`/championships/matches/${matchId}/start`);
-  return data;
-}
+
 export async function fetchKnockoutBracket(championshipId: string) {
   const { data } = await api.get<Match[]>(`/championships/${championshipId}/knockout`);
   return data;

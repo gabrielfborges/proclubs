@@ -24,6 +24,7 @@ import { BracketView } from "../../components/BracketView";
 import { getApiErrorMessage } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { ChampionshipStatisticsPanel } from "../../components/ChampionshipStatisticsPanel";
+import { MatchChat } from "../../components/MatchChat";
 
 type TabKey = "standings" | "matches" | "knockout" | "teams" | "stats";
 
@@ -150,11 +151,33 @@ export function ChampionshipDetail() {
       return;
     }
 
-    setMyMatchesLoading(true);
-    fetchMyChampionshipMatchesRequest(id)
-      .then(setMyMatches)
-      .catch((err) => setReadyError(getApiErrorMessage(err)))
-      .finally(() => setMyMatchesLoading(false));
+    const championshipId = id;
+    let cancelled = false;
+    let initialLoad = true;
+    async function loadMyMatches() {
+      if (initialLoad) setMyMatchesLoading(true);
+      try {
+        const matches = await fetchMyChampionshipMatchesRequest(championshipId);
+        if (!cancelled) {
+          setMyMatches(matches);
+          setReadyError("");
+        }
+      } catch (err) {
+        if (!cancelled) setReadyError(getApiErrorMessage(err));
+      } finally {
+        if (!cancelled && initialLoad) {
+          initialLoad = false;
+          setMyMatchesLoading(false);
+        }
+      }
+    }
+
+    void loadMyMatches();
+    const intervalId = window.setInterval(() => void loadMyMatches(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, [id, isAuthenticated]);
 
   async function handleRegistrationSubmit(event: FormEvent) {
@@ -205,17 +228,11 @@ export function ChampionshipDetail() {
             ? {
                 ...match,
                 readyTeamIds: result.readyTeamIds,
-                discordChannelUrl: result.discordChannelUrl || match.discordChannelUrl,
+                startedAt: result.startedAt,
               }
             : match
         )
       );
-      if (result.discordChannelUrl) {
-        const discordWindow = window.open(result.discordChannelUrl, "_blank", "noopener,noreferrer");
-        if (!discordWindow) {
-          setReadyError("O chat foi criado, mas o navegador bloqueou a abertura automatica. Use o botao Abrir chat no Discord.");
-        }
-      }
     } catch (err) {
       setReadyError(getApiErrorMessage(err));
     } finally {
@@ -508,19 +525,16 @@ function UpcomingMatchCard({
           <button type="button" className={myTeamReady ? "btn-secondary shrink-0" : "btn-primary shrink-0"} onClick={onReady} disabled={loading || myTeamReady}>
             {loading ? "Confirmando..." : myTeamReady ? "Seu time est� pronto" : "Estou pronto"}
           </button>
-          {match.discordChannelUrl && (
-            <a
-              href={match.discordChannelUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="btn-secondary shrink-0"
-            >
-              Abrir chat no Discord
-            </a>
-          )}
+
+
           <button type="button" className="btn-secondary shrink-0" onClick={() => { setShowDispute((current) => !current); setDisputeError(""); }}>
             {showDispute ? "Fechar disputa" : "Abrir disputa"}
           </button>
+      <MatchChat
+        matchId={match.id}
+        matchStatus={match.status}
+        autoOpen={homeReady && awayReady}
+      />
       {showDispute && (
         <form onSubmit={submitDispute} className="mt-3 space-y-2 border-t border-base-700 pt-3">
           <label className="label" htmlFor={"dispute-" + match.id}>Descreva o problema</label>
