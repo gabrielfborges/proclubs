@@ -151,6 +151,7 @@ export interface MatchChatMessage {
   matchId: string;
   userId: string;
   content: string;
+  imageData: string | null;
   createdAt: string;
   user: Pick<User, "id" | "username" | "role">;
 }

@@ -1,4 +1,4 @@
-import { KeyboardEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { fetchMatchChatRequest, sendMatchChatMessageRequest } from "../api/championships";
 import { getApiErrorMessage } from "../api/client";
 import { MatchChatMessage, MatchStatus } from "../types";
@@ -10,6 +10,56 @@ interface MatchChatProps {
   autoOpen?: boolean;
   compact?: boolean;
   pollWhenClosed?: boolean;
+}
+
+const MAX_IMAGE_DATA_LENGTH = 700_000;
+const MAX_IMAGE_FILE_SIZE = 10 * 1024 * 1024;
+
+function optimizeImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Selecione um arquivo de imagem."));
+      return;
+    }
+    if (file.size > MAX_IMAGE_FILE_SIZE) {
+      reject(new Error("A foto deve ter no maximo 10 MB antes da compressao."));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Nao foi possivel ler a foto."));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("Nao foi possivel processar a foto."));
+      image.onload = () => {
+        const maxDimension = 1280;
+        const scale = Math.min(1, maxDimension / image.naturalWidth, maxDimension / image.naturalHeight);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(new Error("Seu navegador nao conseguiu preparar a foto."));
+          return;
+        }
+
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        for (const quality of [0.78, 0.62, 0.48, 0.35]) {
+          const imageData = canvas.toDataURL("image/jpeg", quality);
+          if (imageData.length <= MAX_IMAGE_DATA_LENGTH) {
+            resolve(imageData);
+            return;
+          }
+        }
+
+        reject(new Error("A foto ficou muito grande. Escolha uma imagem menor."));
+      };
+      image.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 export function MatchChat({
@@ -25,10 +75,14 @@ export function MatchChat({
   const [locked, setLocked] = useState(matchStatus === "PLAYED");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [processingPhoto, setProcessingPhoto] = useState(false);
   const [content, setContent] = useState("");
+  const [imageData, setImageData] = useState("");
+  const [imageName, setImageName] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const knownMessageIds = useRef(new Set<string>());
   const initialized = useRef(false);
 
@@ -61,7 +115,11 @@ export function MatchChat({
         setLocked(response.locked);
         if (!initial && incoming.length > 0) {
           setUnreadCount((current) => current + incoming.length);
-          setNotice(incoming.length === 1 ? "Nova mensagem no chat da partida." : `${incoming.length} novas mensagens no chat da partida.`);
+          setNotice(
+            incoming.length === 1
+              ? "Nova mensagem no chat da partida."
+              : incoming.length + " novas mensagens no chat da partida."
+          );
         }
         if (open) setUnreadCount(0);
         setError("");
@@ -92,17 +150,43 @@ export function MatchChat({
     });
   }
 
+  async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setProcessingPhoto(true);
+    setError("");
+    try {
+      const optimizedImage = await optimizeImage(file);
+      setImageData(optimizedImage);
+      setImageName(file.name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel anexar a foto.");
+    } finally {
+      setProcessingPhoto(false);
+    }
+  }
+
+  function removePhoto() {
+    setImageData("");
+    setImageName("");
+    setError("");
+  }
+
   async function handleSend() {
     const trimmed = content.trim();
-    if (!trimmed || locked || sending) return;
+    if ((!trimmed && !imageData) || locked || sending || processingPhoto) return;
 
     setSending(true);
     setError("");
     try {
-      const message = await sendMatchChatMessageRequest(matchId, trimmed);
+      const message = await sendMatchChatMessageRequest(matchId, trimmed, imageData || undefined);
       setMessages((current) => [...current, message]);
       knownMessageIds.current.add(message.id);
       setContent("");
+      setImageData("");
+      setImageName("");
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -146,7 +230,10 @@ export function MatchChat({
                       {message.user.role === "ADMIN" && <span>ADM</span>}
                       <time dateTime={message.createdAt}>{new Date(message.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</time>
                     </div>
-                    <p>{message.content}</p>
+                    {message.imageData && (
+                      <img className="chat-message-image" src={message.imageData} alt="Foto enviada no chat" loading="lazy" />
+                    )}
+                    {message.content && <p>{message.content}</p>}
                   </div>
                 );
               })
@@ -157,22 +244,55 @@ export function MatchChat({
             <p className="match-chat-locked">Esta partida foi finalizada. O chat está disponível apenas para consulta.</p>
           ) : (
             <div className="match-chat-form">
-              <input
-                className="input"
-                value={content}
-                onChange={(event) => setContent(event.target.value.slice(0, 1000))}
-                onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    void handleSend();
-                  }
-                }}
-                placeholder="Escreva uma mensagem..."
-                maxLength={1000}
-                aria-label="Mensagem do chat"
-                disabled={sending}
-              />
-              <button type="button" className="btn-primary" onClick={() => void handleSend()} disabled={sending || !content.trim()}>{sending ? "..." : "Enviar"}</button>
+              {imageData && (
+                <div className="match-chat-photo-preview">
+                  <img src={imageData} alt="Pré-visualização da foto" />
+                  <span>{imageName}</span>
+                  <button type="button" onClick={removePhoto} disabled={sending}>Remover</button>
+                </div>
+              )}
+              <div className="match-chat-compose-row">
+                <input
+                  className="input"
+                  value={content}
+                  onChange={(event) => setContent(event.target.value.slice(0, 1000))}
+                  onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void handleSend();
+                    }
+                  }}
+                  placeholder="Escreva uma mensagem..."
+                  maxLength={1000}
+                  aria-label="Mensagem do chat"
+                  disabled={sending || processingPhoto}
+                />
+                <input
+                  ref={fileInputRef}
+                  className="match-chat-file-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(event) => void handlePhotoChange(event)}
+                  disabled={sending || processingPhoto}
+                />
+                <button
+                  type="button"
+                  className="match-chat-photo-button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={sending || processingPhoto}
+                  aria-label="Anexar foto"
+                >
+                  {processingPhoto ? "..." : "Foto"}
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => void handleSend()}
+                  disabled={sending || processingPhoto || (!content.trim() && !imageData)}
+                >
+                  {sending ? "..." : "Enviar"}
+                </button>
+              </div>
             </div>
           )}
           {error && <p className="match-chat-error">{error}</p>}

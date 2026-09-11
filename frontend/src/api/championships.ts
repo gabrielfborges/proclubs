@@ -135,8 +135,11 @@ export async function fetchMatchChatRequest(matchId: string) {
   return data;
 }
 
-export async function sendMatchChatMessageRequest(matchId: string, content: string) {
-  const { data } = await api.post<import("../types").MatchChatMessage>(`/championships/matches/${matchId}/chat`, { content });
+export async function sendMatchChatMessageRequest(matchId: string, content: string, imageData?: string) {
+  const { data } = await api.post<import("../types").MatchChatMessage>(
+    "/championships/matches/" + matchId + "/chat",
+    { content, imageData }
+  );
   return data;
 }
 

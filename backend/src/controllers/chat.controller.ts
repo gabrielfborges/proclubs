@@ -3,9 +3,27 @@ import { z } from "zod";
 import { prisma } from "../prisma";
 import { asyncHandler, AppError } from "../middleware/errorHandler";
 
-const messageSchema = z.object({
-  content: z.string().trim().min(1, "A mensagem nao pode ficar vazia.").max(1000, "A mensagem deve ter no maximo 1000 caracteres."),
-});
+const imageDataSchema = z
+  .string()
+  .max(700_000, "A foto deve ter no maximo 500 KB.")
+  .regex(
+    /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/,
+    "A foto enviada nao e valida."
+  );
+
+const messageSchema = z
+  .object({
+    content: z
+      .string()
+      .trim()
+      .max(1000, "A mensagem deve ter no maximo 1000 caracteres.")
+      .default(""),
+    imageData: imageDataSchema.optional(),
+  })
+  .refine(({ content, imageData }) => Boolean(content) || Boolean(imageData), {
+    path: ["content"],
+    message: "Digite uma mensagem ou selecione uma foto.",
+  });
 
 async function getAuthorizedMatch(matchId: string, userId: string, role: string) {
   const match = await prisma.match.findUnique({
@@ -48,14 +66,19 @@ export const sendMatchChatMessage = asyncHandler(async (req: Request, res: Respo
   const userId = req.user?.id;
   if (!userId) throw new AppError("Usuario nao autenticado.", 401);
 
-  const { content } = messageSchema.parse(req.body);
+  const { content, imageData } = messageSchema.parse(req.body);
   const match = await getAuthorizedMatch(req.params.id, userId, req.user?.role || "USER");
   if (match.status === "PLAYED") {
     throw new AppError("O chat desta partida foi encerrado junto com a partida.", 400);
   }
 
   const message = await prisma.matchChatMessage.create({
-    data: { matchId: match.id, userId, content },
+    data: {
+      matchId: match.id,
+      userId,
+      content,
+      imageData: imageData || null,
+    },
     include: { user: { select: { id: true, username: true, role: true } } },
   });
 
