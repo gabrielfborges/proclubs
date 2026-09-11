@@ -198,7 +198,7 @@ export function MatchChat({
     <div className={compact ? "match-chat match-chat-compact" : "match-chat"}>
       <button type="button" className="match-chat-trigger" onClick={toggleChat} aria-expanded={open}>
         <span className="match-chat-trigger-icon">⌁</span>
-        <span>Chat da partida</span>
+        <span>{compact ? "Visualizar chat" : "Chat da partida"}</span>
         {unreadCount > 0 && <span className="match-chat-unread">{unreadCount > 9 ? "9+" : unreadCount}</span>}
         <span className="match-chat-trigger-state">{locked ? "Encerrado" : open ? "Fechar" : "Abrir"}</span>
       </button>

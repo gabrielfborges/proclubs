@@ -18,5 +18,3 @@ FOREIGN KEY ("matchId") REFERENCES "Match"("id") ON DELETE CASCADE ON UPDATE CAS
 ALTER TABLE "MatchChatMessage"
 ADD CONSTRAINT "MatchChatMessage_userId_fkey"
 FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "MatchChatMessage" ADD COLUMN "imageData" TEXT;

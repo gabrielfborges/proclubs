@@ -1,0 +1,1 @@
+ALTER TABLE "MatchChatMessage" ADD COLUMN "imageData" TEXT;
