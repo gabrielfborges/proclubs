@@ -168,6 +168,7 @@ export function Navbar() {
           <MobileBottomLink to="/login" label="Entrar" icon="user" />
         )}
         <MobileBottomLink to="/comunidade" label="Comunidade" icon="users" />
+        <MobileBottomLink to="/regulamentos" label="Regulamento" icon="book" />
       </nav>
     </>
   );

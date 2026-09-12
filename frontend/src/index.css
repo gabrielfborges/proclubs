@@ -770,7 +770,7 @@ body::before {
     left: 50%;
     z-index: 60;
     display: flex;
-    width: min(calc(100% - 32px), 310px);
+    width: min(calc(100% - 24px), 370px);
     height: 60px;
     transform: translateX(-50%);
     align-items: center;
