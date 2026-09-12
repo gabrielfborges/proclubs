@@ -59,30 +59,97 @@ export function ChampionshipDetail() {
   const [myMatchesLoading, setMyMatchesLoading] = useState(false);
   const [readyMatchId, setReadyMatchId] = useState("");
   const [readyError, setReadyError] = useState("");
+  const [tabLoading, setTabLoading] = useState(false);
+  const [tabError, setTabError] = useState("");
+  const [loadedTabs, setLoadedTabs] = useState<Record<TabKey, boolean>>({
+    standings: false,
+    matches: false,
+    knockout: false,
+    teams: true,
+    stats: false,
+  });
   const selectedApplication = myApplications.find(
     (application) => application.teamId === registrationTeamId && application.championshipId === id
   );
 
   useEffect(() => {
     if (!id) return;
+
+    let cancelled = false;
     setLoading(true);
-    Promise.all([
-      fetchChampionship(id),
-      fetchStandings(id),
-      fetchMatches(id, "GROUP"),
-      fetchKnockoutBracket(id),
-      fetchChampionshipStatistics(id),
-    ])
-      .then(([champ, st, matches, knockout, stats]) => {
-        setChampionship(champ);
-        setStandings(st);
-        setGroupMatches(matches);
-        setKnockoutMatches(knockout);
-        setStatistics(stats);
+    setError("");
+    setChampionship(null);
+    setStandings([]);
+    setGroupMatches([]);
+    setKnockoutMatches([]);
+    setStatistics({ scorers: [], assisters: [] });
+    setTabError("");
+    setLoadedTabs({ standings: false, matches: false, knockout: false, teams: true, stats: false });
+
+    fetchChampionship(id)
+      .then((champ) => {
+        if (!cancelled) setChampionship(champ);
       })
-      .catch((err) => setError(getApiErrorMessage(err)))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!cancelled) setError(getApiErrorMessage(err));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
+
+  useEffect(() => {
+    if (!id || !championship || championship.id !== id || tab === "teams" || loadedTabs[tab]) return;
+
+    const championshipId = id;
+    let cancelled = false;
+    setTabLoading(true);
+    setTabError("");
+
+    async function loadTab() {
+      switch (tab) {
+        case "standings": {
+          const data = await fetchStandings(championshipId);
+          if (!cancelled) setStandings(data);
+          break;
+        }
+        case "matches": {
+          const data = await fetchMatches(championshipId, "GROUP");
+          if (!cancelled) setGroupMatches(data);
+          break;
+        }
+        case "knockout": {
+          const data = await fetchKnockoutBracket(championshipId);
+          if (!cancelled) setKnockoutMatches(data);
+          break;
+        }
+        case "stats": {
+          const data = await fetchChampionshipStatistics(championshipId);
+          if (!cancelled) setStatistics(data);
+          break;
+        }
+      }
+    }
+
+    loadTab()
+      .then(() => {
+        if (!cancelled) setLoadedTabs((current) => ({ ...current, [tab]: true }));
+      })
+      .catch((err) => {
+        if (!cancelled) setTabError(getApiErrorMessage(err));
+      })
+      .finally(() => {
+        if (!cancelled) setTabLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, championship, tab, loadedTabs[tab]]);
 
   useEffect(() => {
     if (!showRegistration || !isAuthenticated || championship?.stage !== "REGISTRATION") return;
@@ -480,48 +547,56 @@ export function ChampionshipDetail() {
         ))}
       </div>
 
-      {tab === "stats" && <ChampionshipStatisticsPanel statistics={statistics} />}
+      {tabLoading ? (
+        <Loading label="Carregando conteúdo da aba..." />
+      ) : tabError ? (
+        <ErrorBox message={tabError} />
+      ) : (
+        <>
+          {tab === "stats" && <ChampionshipStatisticsPanel statistics={statistics} />}
 
-      {tab === "standings" && (
-        <div className="space-y-8">
-          {standings.length === 0 && (
-            <p className="py-10 text-center text-sm text-slate-500">
-              Os grupos ainda nao foram gerados para este campeonato.
-            </p>
-          )}
-          {standings.map((group) => (
-            <div key={group.groupId}>
-              <h3 className="mb-2 text-sm font-semibold text-slate-300">Grupo {group.groupName}</h3>
-              <StandingsTable rows={group.standings} highlightTop={championship.teamsQualifyingPerGroup} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "matches" && <MatchList matches={groupMatches} />}
-
-      {tab === "knockout" && <BracketView matches={knockoutMatches} />}
-
-      {tab === "teams" && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {championship.teams.map((team) => (
-            <div key={team.id} className="card flex items-center gap-3 p-3">
-              {team.logoUrl ? (
-                <img src={team.logoUrl} alt={team.name} className="h-10 w-10 rounded-full object-cover" />
-              ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-base-800 text-sm font-bold text-slate-400">
-                  {team.name.slice(0, 2).toUpperCase()}
-                </div>
+          {tab === "standings" && (
+            <div className="space-y-8">
+              {standings.length === 0 && (
+                <p className="py-10 text-center text-sm text-slate-500">
+                  Os grupos ainda nao foram gerados para este campeonato.
+                </p>
               )}
-              <span className="font-medium">{team.name}</span>
+              {standings.map((group) => (
+                <div key={group.groupId}>
+                  <h3 className="mb-2 text-sm font-semibold text-slate-300">Grupo {group.groupName}</h3>
+                  <StandingsTable rows={group.standings} highlightTop={championship.teamsQualifyingPerGroup} />
+                </div>
+              ))}
             </div>
-          ))}
-          {championship.teams.length === 0 && (
-            <p className="col-span-full py-10 text-center text-sm text-slate-500">
-              Nenhum time cadastrado ainda.
-            </p>
           )}
-        </div>
+
+          {tab === "matches" && <MatchList matches={groupMatches} />}
+
+          {tab === "knockout" && <BracketView matches={knockoutMatches} />}
+
+          {tab === "teams" && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {championship.teams.map((team) => (
+                <div key={team.id} className="card flex items-center gap-3 p-3">
+                  {team.logoUrl ? (
+                    <img src={team.logoUrl} alt={team.name} className="h-10 w-10 rounded-full object-cover" />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-base-800 text-sm font-bold text-slate-400">
+                      {team.name.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="font-medium">{team.name}</span>
+                </div>
+              ))}
+              {championship.teams.length === 0 && (
+                <p className="col-span-full py-10 text-center text-sm text-slate-500">
+                  Nenhum time cadastrado ainda.
+                </p>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

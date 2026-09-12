@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   fetchChampionship,
@@ -36,6 +36,15 @@ import { MatchChat } from "../../components/MatchChat";
 
 type TabKey = "teams" | "applications" | "groups" | "knockout" | "stats" | "disputes";
 
+const EMPTY_TAB_STATE: Record<TabKey, boolean> = {
+  teams: false,
+  applications: false,
+  groups: false,
+  knockout: false,
+  stats: false,
+  disputes: false,
+};
+
 export function ChampionshipManage() {
   const { id } = useParams<{ id: string }>();
   const [championship, setChampionship] = useState<Championship | null>(null);
@@ -52,6 +61,10 @@ export function ChampionshipManage() {
   const [tab, setTab] = useState<TabKey>("teams");
   const [actionError, setActionError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [tabLoading, setTabLoading] = useState(false);
+  const [tabError, setTabError] = useState("");
+  const [loadedTabs, setLoadedTabs] = useState<Record<TabKey, boolean>>(EMPTY_TAB_STATE);
+  const tabRequestId = useRef(0);
   const [detailsForm, setDetailsForm] = useState({
     prizeFirstCents: 0,
     prizeSecondCents: 0,
@@ -59,53 +72,122 @@ export function ChampionshipManage() {
     startsAt: "",
   });
 
-  const loadAll = useCallback(async () => {
+  const loadChampionship = useCallback(async (showLoading = false) => {
     if (!id) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
-      const [champ, teamList, applicationList, userList, groupList, matches, knockout, readiness, disputeList] = await Promise.all([
-        fetchChampionship(id),
-        fetchTeams(id),
-        fetchChampionshipApplicationsRequest(id),
-        fetchUsersRequest(),
-        fetchGroups(id),
-        fetchMatches(id, "GROUP"),
-        fetchKnockoutBracket(id),
-        fetchKnockoutReadiness(id),
-        fetchChampionshipDisputesRequest(id),
-      ]);
-      setChampionship(champ);      setDetailsForm({
+      const champ = await fetchChampionship(id);
+      setChampionship(champ);
+      setDetailsForm({
         prizeFirstCents: champ.prizeFirstCents,
         prizeSecondCents: champ.prizeSecondCents,
         prizeThirdCents: champ.prizeThirdCents,
         startsAt: champ.startsAt ? new Date(champ.startsAt).toISOString().slice(0, 16) : "",
       });
-      setTeams(teamList);
-      setApplications(applicationList);
-      setUsers(userList);
-      setGroups(groupList);
-      setGroupMatches(matches);
-      setKnockoutMatches(knockout);
-      setKnockoutReady(readiness.ready);
-      setDisputes(disputeList);
       setError("");
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    tabRequestId.current += 1;
+    setChampionship(null);
+    setTeams([]);
+    setApplications([]);
+    setDisputes([]);
+    setUsers([]);
+    setGroups([]);
+    setGroupMatches([]);
+    setKnockoutMatches([]);
+    setKnockoutReady(false);
+    setLoadedTabs(EMPTY_TAB_STATE);
+    setTabError("");
+    void loadChampionship(true);
+  }, [loadChampionship]);
 
-  async function runAction(fn: () => Promise<any>) {
+  const loadTab = useCallback(async (targetTab: TabKey, force = false) => {
+    if (!id || (!force && loadedTabs[targetTab])) return;
+    const requestId = ++tabRequestId.current;
+    const isCurrentRequest = () => tabRequestId.current === requestId;
+    setTabLoading(true);
+    setTabError("");
+    try {
+      switch (targetTab) {
+        case "teams": {
+          const [teamList, userList] = await Promise.all([fetchTeams(id), fetchUsersRequest()]);
+          if (isCurrentRequest()) {
+            setTeams(teamList);
+            setUsers(userList);
+          }
+          break;
+        }
+        case "applications": {
+          const applicationList = await fetchChampionshipApplicationsRequest(id);
+          if (isCurrentRequest()) setApplications(applicationList);
+          break;
+        }
+        case "groups": {
+          const [groupList, matches] = await Promise.all([fetchGroups(id), fetchMatches(id, "GROUP")]);
+          if (isCurrentRequest()) {
+            setGroups(groupList);
+            setGroupMatches(matches);
+          }
+          break;
+        }
+        case "knockout": {
+          const [knockout, readiness] = await Promise.all([
+            fetchKnockoutBracket(id),
+            fetchKnockoutReadiness(id),
+          ]);
+          if (isCurrentRequest()) {
+            setKnockoutMatches(knockout);
+            setKnockoutReady(readiness.ready);
+          }
+          break;
+        }
+        case "stats": {
+          const [teamList, matches, knockout] = await Promise.all([
+            fetchTeams(id),
+            fetchMatches(id, "GROUP"),
+            fetchKnockoutBracket(id),
+          ]);
+          if (isCurrentRequest()) {
+            setTeams(teamList);
+            setGroupMatches(matches);
+            setKnockoutMatches(knockout);
+          }
+          break;
+        }
+        case "disputes": {
+          const disputeList = await fetchChampionshipDisputesRequest(id);
+          if (isCurrentRequest()) setDisputes(disputeList);
+          break;
+        }
+      }
+      if (isCurrentRequest()) setLoadedTabs((current) => ({ ...current, [targetTab]: true }));
+    } catch (err) {
+      if (isCurrentRequest()) setTabError(getApiErrorMessage(err));
+    } finally {
+      if (isCurrentRequest()) setTabLoading(false);
+    }
+  }, [id, loadedTabs]);
+
+  useEffect(() => {
+    if (!id || !championship || championship.id !== id) return;
+    void loadTab(tab);
+  }, [id, championship?.id, tab, loadTab]);
+
+  async function runAction(fn: () => Promise<unknown>) {
     setActionError("");
     setActionLoading(true);
     try {
       await fn();
-      await loadAll();
+      setLoadedTabs(EMPTY_TAB_STATE);
+      await loadChampionship();
+      await loadTab(tab, true);
     } catch (err) {
       setActionError(getApiErrorMessage(err));
     } finally {
@@ -204,6 +286,12 @@ export function ChampionshipManage() {
 
       {actionError && <div className="mb-4"><ErrorBox message={actionError} /></div>}
 
+      {tabLoading ? (
+        <Loading label="Carregando conteúdo da aba..." />
+      ) : tabError ? (
+        <ErrorBox message={tabError} />
+      ) : (
+        <>
       {tab === "teams" && (
         <TeamsPanel
           championship={championship}
@@ -294,6 +382,8 @@ export function ChampionshipManage() {
           }
           onResetScore={(matchId) => runAction(() => resetMatchScoreRequest(matchId))}
         />
+      )}
+        </>
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { clearRequestCache } from "../utils/requestCache";
 
 export const TOKEN_KEY = "fc_auth_token";
 export const USER_KEY = "fc_user";
@@ -17,9 +18,14 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const method = response.config.method?.toLowerCase();
+    if (method && !["get", "head"].includes(method)) clearRequestCache();
+    return response;
+  },
   (error) => {
     if (error?.response?.status === 401) {
+      clearRequestCache();
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem("fc_admin_token");

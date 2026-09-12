@@ -1,20 +1,27 @@
 import axios from "axios";
 import { api } from "./client";
 import { AdminSummary, ApplicationPayment, Championship, ChampionshipApplication, EaClubSearchResult, Group, GroupStandings, Match, Player, Team, User, UserTeam, ChampionshipStatistics, MatchPlayerStat } from "../types";
+import { cachedRequest } from "../utils/requestCache";
 
 export async function fetchAdminSummaryRequest() {
-  const { data } = await api.get<AdminSummary>("/championships/admin/summary");
-  return data;
+  return cachedRequest("admin:summary", async () => {
+    const { data } = await api.get<AdminSummary>("/championships/admin/summary");
+    return data;
+  }, 15_000);
 }
 
 export async function fetchChampionships() {
-  const { data } = await api.get<Championship[]>("/championships");
-  return data;
+  return cachedRequest("championships:list", async () => {
+    const { data } = await api.get<Championship[]>("/championships");
+    return data;
+  });
 }
 
 export async function fetchChampionship(id: string) {
-  const { data } = await api.get<Championship>(`/championships/${id}`);
-  return data;
+  return cachedRequest(`championship:${id}:details`, async () => {
+    const { data } = await api.get<Championship>(`/championships/${id}`);
+    return data;
+  });
 }
 
 export interface ChampionshipInput {
@@ -45,12 +52,16 @@ export async function deleteChampionshipRequest(id: string) {
 }
 
 export async function fetchUsersRequest() {
-  const { data } = await api.get<User[]>("/auth/users");
-  return data;
+  return cachedRequest("users:list", async () => {
+    const { data } = await api.get<User[]>("/auth/users");
+    return data;
+  }, 60_000);
 }
 export async function fetchTeams(championshipId: string) {
-  const { data } = await api.get<Team[]>(`/championships/${championshipId}/teams`);
-  return data;
+  return cachedRequest(`championship:${championshipId}:teams`, async () => {
+    const { data } = await api.get<Team[]>(`/championships/${championshipId}/teams`);
+    return data;
+  });
 }
 
 export async function createTeamRequest(
@@ -66,8 +77,10 @@ export async function deleteTeamRequest(teamId: string) {
 }
 
 export async function fetchGroups(championshipId: string) {
-  const { data } = await api.get<Group[]>(`/championships/${championshipId}/groups`);
-  return data;
+  return cachedRequest(`championship:${championshipId}:groups`, async () => {
+    const { data } = await api.get<Group[]>(`/championships/${championshipId}/groups`);
+    return data;
+  });
 }
 
 export async function generateGroupsRequest(championshipId: string) {
@@ -81,15 +94,19 @@ export async function generateMatchesRequest(championshipId: string) {
 }
 
 export async function fetchStandings(championshipId: string) {
-  const { data } = await api.get<GroupStandings[]>(`/championships/${championshipId}/standings`);
-  return data;
+  return cachedRequest(`championship:${championshipId}:standings`, async () => {
+    const { data } = await api.get<GroupStandings[]>(`/championships/${championshipId}/standings`);
+    return data;
+  }, 15_000);
 }
 
 export async function fetchMatches(championshipId: string, phase?: "GROUP" | "KNOCKOUT") {
-  const { data } = await api.get<Match[]>(`/championships/${championshipId}/matches`, {
-    params: phase ? { phase } : undefined,
+  return cachedRequest(`championship:${championshipId}:matches:${phase || "all"}`, async () => {
+    const { data } = await api.get<Match[]>(`/championships/${championshipId}/matches`, {
+      params: phase ? { phase } : undefined,
+    });
+    return data;
   });
-  return data;
 }
 
 export async function fetchMyChampionshipMatchesRequest(championshipId: string) {
@@ -113,8 +130,10 @@ export async function fetchMatchDisputesRequest(matchId: string) {
 }
 
 export async function fetchChampionshipDisputesRequest(championshipId: string) {
-  const { data } = await api.get<import("../types").MatchDispute[]>("/championships/" + championshipId + "/disputes");
-  return data;
+  return cachedRequest(`championship:${championshipId}:disputes`, async () => {
+    const { data } = await api.get<import("../types").MatchDispute[]>("/championships/" + championshipId + "/disputes");
+    return data;
+  }, 15_000);
 }
 
 export async function openMatchDisputeRequest(matchId: string, reason: string) {
@@ -217,15 +236,19 @@ export async function resetMatchScoreRequest(matchId: string) {
 
 
 export async function fetchKnockoutBracket(championshipId: string) {
-  const { data } = await api.get<Match[]>(`/championships/${championshipId}/knockout`);
-  return data;
+  return cachedRequest(`championship:${championshipId}:knockout`, async () => {
+    const { data } = await api.get<Match[]>(`/championships/${championshipId}/knockout`);
+    return data;
+  }, 15_000);
 }
 
 export async function fetchKnockoutReadiness(championshipId: string) {
-  const { data } = await api.get<{ ready: boolean }>(
-    `/championships/${championshipId}/knockout/ready`
-  );
-  return data;
+  return cachedRequest(`championship:${championshipId}:knockout-readiness`, async () => {
+    const { data } = await api.get<{ ready: boolean }>(
+      `/championships/${championshipId}/knockout/ready`
+    );
+    return data;
+  }, 15_000);
 }
 
 export async function generateKnockoutRequest(championshipId: string) {
@@ -404,8 +427,10 @@ export async function createOwnTeamRequest(input: { name: string; eaClubId: stri
   return data;
 }
 export async function fetchMyTeamsRequest() {
-  const { data } = await api.get<UserTeam[]>("/championships/teams/mine");
-  return data;
+  return cachedRequest("teams:mine", async () => {
+    const { data } = await api.get<UserTeam[]>("/championships/teams/mine");
+    return data;
+  }, 15_000);
 }
 
 export async function fetchApplicationPaymentRequest(applicationId: string) {
@@ -436,10 +461,12 @@ export async function requestChampionshipApplicationRequest(championshipId: stri
 }
 
 export async function fetchChampionshipApplicationsRequest(championshipId: string) {
-  const { data } = await api.get<ChampionshipApplication[]>(
-    `/championships/${championshipId}/applications`
-  );
-  return data;
+  return cachedRequest(`championship:${championshipId}:applications`, async () => {
+    const { data } = await api.get<ChampionshipApplication[]>(
+      `/championships/${championshipId}/applications`
+    );
+    return data;
+  }, 15_000);
 }
 
 export async function reviewChampionshipApplicationRequest(
@@ -458,8 +485,10 @@ export async function updateOwnTeamRequest(teamId: string, input: { name: string
 }
 
 export async function fetchTeamPlayersRequest(teamId: string) {
-  const { data } = await api.get<Player[]>("/championships/teams/" + teamId + "/players");
-  return data;
+  return cachedRequest(`team:${teamId}:players`, async () => {
+    const { data } = await api.get<Player[]>("/championships/teams/" + teamId + "/players");
+    return data;
+  }, 15_000);
 }
 
 export async function syncTeamPlayersRequest(teamId: string, eaClubId?: string | null) {
@@ -488,8 +517,10 @@ export async function deleteTeamPlayerRequest(teamId: string, playerId: string) 
   await api.delete("/championships/teams/" + teamId + "/players/" + playerId);
 }
 export async function fetchChampionshipStatistics(championshipId: string) {
-  const { data } = await api.get<ChampionshipStatistics>(`/championships/${championshipId}/statistics`);
-  return data;
+  return cachedRequest(`championship:${championshipId}:statistics`, async () => {
+    const { data } = await api.get<ChampionshipStatistics>(`/championships/${championshipId}/statistics`);
+    return data;
+  }, 15_000);
 }
 
 export async function updateMatchPlayerStatsRequest(matchId: string, stats: Array<{ playerId: string; goals: number; assists: number }>) {
