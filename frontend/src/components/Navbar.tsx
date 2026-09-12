@@ -79,7 +79,8 @@ export function Navbar() {
   }
 
   return (
-    <aside className={mobileMenuOpen ? "site-sidebar mobile-menu-open" : "site-sidebar"}>
+    <>
+      <aside className={mobileMenuOpen ? "site-sidebar mobile-menu-open" : "site-sidebar"}>
       <div className="site-brand-wrap">
         <Link to="/" className="site-brand">
           <span className="brand-name">RACHÃO<span>.</span></span>
@@ -153,6 +154,7 @@ export function Navbar() {
             <Link to="/register" className="btn-primary w-full !py-2">Criar conta</Link>
           </div>
         )}</div>
+    </aside>
       <nav className="mobile-bottom-nav" aria-label="Navegação mobile">
         <MobileBottomLink to="/" label="Hub" icon="home" end />
         <MobileBottomLink to="/campeonatos" label="Campeonatos" icon="trophy" />
@@ -164,6 +166,7 @@ export function Navbar() {
           <MobileBottomLink to="/login" label="Entrar" icon="user" />
         )}
         <MobileBottomLink to="/comunidade" label="Comunidade" icon="users" />
-      </nav>    </aside>
+      </nav>
+    </>
   );
 }
