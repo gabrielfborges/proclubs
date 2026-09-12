@@ -4,7 +4,7 @@ import { beginDiscordLinkRequest } from "../api/auth";
 import { getApiErrorMessage } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
-type IconName = "home" | "compass" | "edit" | "shield" | "discord" | "users" | "user";
+type IconName = "home" | "compass" | "trophy" | "edit" | "shield" | "discord" | "users" | "user" | "bell";
 
 function NavIcon({ name }: { name: IconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -12,8 +12,10 @@ function NavIcon({ name }: { name: IconName }) {
     <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true">
       {name === "home" && <><path {...common} d="m3.5 10 8.5-7 8.5 7" /><path {...common} d="M5.5 9.5v10h13v-10M9 19.5v-6h6v6" /></>}
       {name === "compass" && <><circle {...common} cx="12" cy="12" r="8.5" /><path {...common} d="m14.9 9.1-1.8 4-4 1.8 1.8-4z" /></>}
+      {name === "trophy" && <><path {...common} d="M8 4h8v4.5a4 4 0 0 1-8 0z" /><path {...common} d="M8 6H5.5v1.5A3.5 3.5 0 0 0 9 11M16 6h2.5v1.5A3.5 3.5 0 0 1 15 11M12 12.5v4M8.5 20h7M10 16.5h4" /></>}
       {name === "edit" && <><path {...common} d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3" /><path {...common} d="m13.5 8.5 3 3" /></>}
       {name === "shield" && <><path {...common} d="M12 3.5 19 6v5.2c0 4.2-2.7 7.7-7 9.3-4.3-1.6-7-5.1-7-9.3V6z" /><path {...common} d="m9 12 2 2 4-4" /></>}
+      {name === "bell" && <><path {...common} d="M6.5 17.5h11l-1.2-1.8v-4.2a4.3 4.3 0 0 0-8.6 0v4.2z" /><path {...common} d="M10 19a2.2 2.2 0 0 0 4 0" /></>}
       {name === "discord" && <><path {...common} d="M7.5 7.5c3-1.4 6-1.4 9 0 1.2 1.8 1.8 3.8 1.8 6.2-1.8 1.5-3.7 2.3-5.8 2.8l-.7-1.4" /><path {...common} d="M7.5 7.5c-1.2 1.8-1.8 3.8-1.8 6.2 1.8 1.5 3.7 2.3 5.8 2.8" /><circle cx="9.5" cy="12" r=".7" fill="currentColor" /><circle cx="14.5" cy="12" r=".7" fill="currentColor" /></>}
       {name === "users" && <><circle {...common} cx="9" cy="9" r="3" /><path {...common} d="M3.5 19c.5-3 2.4-4.5 5.5-4.5s5 1.5 5.5 4.5M16 6.5a3 3 0 0 1 0 5.8M16.5 14.7c2.2.4 3.5 1.8 4 4.3" /></>}
       {name === "user" && <><circle {...common} cx="12" cy="8" r="3.2" /><path {...common} d="M5 20c.7-3.5 3-5.2 7-5.2s6.3 1.7 7 5.2" /></>}
@@ -30,6 +32,14 @@ function SidebarLink({ to, label, icon, end = false }: { to: string; label: stri
   );
 }
 
+function MobileBottomLink({ to, label, icon, end = false }: { to: string; label: string; icon: IconName; end?: boolean }) {
+  return (
+    <NavLink to={to} end={end} className={({ isActive }) => "mobile-bottom-link " + (isActive ? "mobile-bottom-link-active" : "")} aria-label={label}>
+      <NavIcon name={icon} />
+      <span>{label}</span>
+    </NavLink>
+  );
+}
 export function Navbar() {
   const { isAuthenticated, isAdmin, user, logout } = useAuth();
   const navigate = useNavigate();
@@ -75,6 +85,23 @@ export function Navbar() {
           <span className="brand-name">RACHÃO<span>.</span></span>
           <span className="brand-subtitle">TOURNAMENTS</span>
         </Link>
+      </div>
+      <div className="mobile-top-actions">
+        {isAuthenticated ? (
+          <>
+            <button type="button" className="mobile-notification-button" aria-label="Notificações" title="Notificações">
+              <NavIcon name="bell" />
+            </button>
+            <button type="button" className="mobile-profile-button" onClick={() => navigate("/perfil")} aria-label="Abrir meu perfil">
+              <span className="mobile-account-avatar">{(user?.username || "U").slice(0, 2).toUpperCase()}</span>
+            </button>
+          </>
+        ) : (
+          <div className="mobile-auth-actions">
+            <Link to="/login" className="mobile-auth-link">Entrar</Link>
+            <Link to="/register" className="mobile-auth-link mobile-auth-link-primary">Criar conta</Link>
+          </div>
+        )}
       </div>
 
       <button
@@ -126,6 +153,17 @@ export function Navbar() {
             <Link to="/register" className="btn-primary w-full !py-2">Criar conta</Link>
           </div>
         )}</div>
-    </aside>
+      <nav className="mobile-bottom-nav" aria-label="Navegação mobile">
+        <MobileBottomLink to="/" label="Hub" icon="home" end />
+        <MobileBottomLink to="/campeonatos" label="Campeonatos" icon="trophy" />
+        {isAdmin ? (
+          <MobileBottomLink to="/admin" label="Admin" icon="shield" />
+        ) : isAuthenticated ? (
+          <MobileBottomLink to="/times" label="Meu time" icon="shield" />
+        ) : (
+          <MobileBottomLink to="/login" label="Entrar" icon="user" />
+        )}
+        <MobileBottomLink to="/comunidade" label="Comunidade" icon="users" />
+      </nav>    </aside>
   );
 }
