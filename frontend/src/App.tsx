@@ -17,6 +17,9 @@ const ChampionshipDetail = lazy(() =>
 const Community = lazy(() =>
   import("./pages/public/Community").then(({ Community }) => ({ default: Community }))
 );
+const Regulations = lazy(() =>
+  import("./pages/public/Regulations").then(({ Regulations }) => ({ default: Regulations }))
+);
 const Login = lazy(() =>
   import("./pages/admin/Login").then(({ Login }) => ({ default: Login }))
 );
@@ -55,6 +58,7 @@ export default function App() {
                 <Route path="/campeonatos" element={<Championships />} />
                 <Route path="/campeonatos/:id" element={<ChampionshipDetail />} />
                 <Route path="/comunidade" element={<Community />} />
+                <Route path="/regulamentos" element={<Regulations />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/admin/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
