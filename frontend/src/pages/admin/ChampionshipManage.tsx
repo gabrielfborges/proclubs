@@ -25,6 +25,7 @@ import {
   advanceKnockoutRequest,
   fetchChampionshipApplicationsRequest,
   reviewChampionshipApplicationRequest,
+  updateChampionshipRequest,
 } from "../../api/championships";
 import { Championship, ChampionshipApplication, Group, Match, MatchDispute, Team, User, Player } from "../../types";
 import { Loading, ErrorBox } from "../../components/Loading";
@@ -50,7 +51,13 @@ export function ChampionshipManage() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<TabKey>("teams");
   const [actionError, setActionError] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsForm, setDetailsForm] = useState({
+    prizeFirstCents: 0,
+    prizeSecondCents: 0,
+    prizeThirdCents: 0,
+    startsAt: "",
+  });
 
   const loadAll = useCallback(async () => {
     if (!id) return;
@@ -67,7 +74,12 @@ export function ChampionshipManage() {
         fetchKnockoutReadiness(id),
         fetchChampionshipDisputesRequest(id),
       ]);
-      setChampionship(champ);
+      setChampionship(champ);      setDetailsForm({
+        prizeFirstCents: champ.prizeFirstCents,
+        prizeSecondCents: champ.prizeSecondCents,
+        prizeThirdCents: champ.prizeThirdCents,
+        startsAt: champ.startsAt ? new Date(champ.startsAt).toISOString().slice(0, 16) : "",
+      });
       setTeams(teamList);
       setApplications(applicationList);
       setUsers(userList);
@@ -130,6 +142,50 @@ export function ChampionshipManage() {
         </span>
       </div>
 
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-base-700 bg-base-900/40 p-4">
+        <div>
+          <p className="text-sm font-semibold text-slate-100">Premiação e agenda</p>
+          <p className="mt-1 text-xs text-slate-500">Defina os valores e a data/horário desta edição.</p>
+        </div>
+        <button type="button" className="btn-secondary" onClick={() => setDetailsOpen((open) => !open)}>
+          {detailsOpen ? "Fechar edição" : "Editar prêmio e agenda"}
+        </button>
+      </div>
+
+      {detailsOpen && (
+        <form
+          className="card mb-6 grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void runAction(() => updateChampionshipRequest(id, {
+              prizeFirstCents: detailsForm.prizeFirstCents,
+              prizeSecondCents: detailsForm.prizeSecondCents,
+              prizeThirdCents: detailsForm.prizeThirdCents,
+              startsAt: detailsForm.startsAt ? new Date(detailsForm.startsAt).toISOString() : null,
+            }));
+          }}
+        >
+          <div>
+            <label className="label">1º lugar (R$)</label>
+            <input type="number" min={0} step="0.01" className="input" value={(detailsForm.prizeFirstCents / 100).toFixed(2)} onChange={(event) => setDetailsForm({ ...detailsForm, prizeFirstCents: Math.max(0, Math.round(Number(event.target.value || 0) * 100)) })} />
+          </div>
+          <div>
+            <label className="label">2º lugar (R$)</label>
+            <input type="number" min={0} step="0.01" className="input" value={(detailsForm.prizeSecondCents / 100).toFixed(2)} onChange={(event) => setDetailsForm({ ...detailsForm, prizeSecondCents: Math.max(0, Math.round(Number(event.target.value || 0) * 100)) })} />
+          </div>
+          <div>
+            <label className="label">3º lugar (R$)</label>
+            <input type="number" min={0} step="0.01" className="input" value={(detailsForm.prizeThirdCents / 100).toFixed(2)} onChange={(event) => setDetailsForm({ ...detailsForm, prizeThirdCents: Math.max(0, Math.round(Number(event.target.value || 0) * 100)) })} />
+          </div>
+          <div>
+            <label className="label">Data e horário</label>
+            <input type="datetime-local" className="input" value={detailsForm.startsAt} onChange={(event) => setDetailsForm({ ...detailsForm, startsAt: event.target.value })} />
+          </div>
+          <div className="sm:col-span-2 lg:col-span-4">
+            <button type="submit" className="btn-primary" disabled={actionLoading}>{actionLoading ? "Salvando..." : "Salvar dados"}</button>
+          </div>
+        </form>
+      )}
       <div className="mb-6 flex gap-2 overflow-x-auto border-b border-base-700">
         {tabs.map((t) => (
           <button

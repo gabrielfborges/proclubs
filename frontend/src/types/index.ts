@@ -45,6 +45,10 @@ export interface Championship {
   numberOfGroups: number;
   teamsQualifyingPerGroup: number;
   registrationFeeCents: number;
+  prizeFirstCents: number;
+  prizeSecondCents: number;
+  prizeThirdCents: number;
+  startsAt: string | null;
   stage: ChampionshipStage;
   status: ChampionshipStatus;
   championTeamId: string | null;

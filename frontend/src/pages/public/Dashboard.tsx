@@ -100,6 +100,11 @@ export function Dashboard() {
                 <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
               </div>
               <p className="featured-description">{featured.description || "Monte seu time e entre na disputa pelo título."}</p>
+              <div className="featured-prizes">
+                <span>1º {money(featured.prizeFirstCents)}</span>
+                <span>2º {money(featured.prizeSecondCents)}</span>
+                <span>3º {money(featured.prizeThirdCents)}</span>
+              </div>
               <div className="featured-footer"><span>⌁ Inscrições abertas</span><span>Ver campeonato →</span></div>
             </Link>
           ) : (

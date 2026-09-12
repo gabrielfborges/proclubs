@@ -16,6 +16,9 @@ function formatFee(cents: number) {
   return cents > 0 ? `R$ ${(cents / 100).toFixed(2).replace(".", ",")}` : "Grátis";
 }
 
+function formatDateTime(value: string | null) {
+  return value ? new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "Data e horário a definir";
+}
 export function Championships() {
   const [championships, setChampionships] = useState<Championship[]>([]);
   const [tab, setTab] = useState<ChampionshipStatus>("OPEN");
@@ -69,9 +72,13 @@ export function Championships() {
               </div>
               <p className="championship-next-description">
                 {nextChampionship.description || "Monte seu time e entre na disputa pelo título."}
-              </p>
+              </p>              <div className="championship-next-prizes">
+                <div><span>1º LUGAR</span><strong>{formatFee(nextChampionship.prizeFirstCents)}</strong></div>
+                <div><span>2º LUGAR</span><strong>{formatFee(nextChampionship.prizeSecondCents)}</strong></div>
+                <div><span>3º LUGAR</span><strong>{formatFee(nextChampionship.prizeThirdCents)}</strong></div>
+              </div>
               <p className="championship-next-meta">
-                <span aria-hidden="true">▣</span> {nextChampionship.teams?.length || 0} times inscritos · Até {nextChampionship.maxTeams} times · {nextChampionship.numberOfGroups} grupos
+                <span aria-hidden="true">▣</span> {formatDateTime(nextChampionship.startsAt)} · {nextChampionship.teams?.length || 0} times inscritos · Até {nextChampionship.maxTeams} times · {nextChampionship.numberOfGroups} grupos
               </p>
               <div className="championship-next-footer">
                 <strong>{nextChampionship.status === "OPEN" ? "Ver edição e inscrição" : "Acompanhar campeonato"}</strong>
@@ -127,6 +134,7 @@ export function Championships() {
                       </div>
                       <h3>{championship.name}</h3>
                       <p>{championship.description || "Disputa oficial de EA Sports FC Pro Clubs."}</p>
+                      <p className="mt-2 text-xs text-slate-500">{formatDateTime(championship.startsAt)} · Prêmios: {formatFee(championship.prizeFirstCents)} / {formatFee(championship.prizeSecondCents)} / {formatFee(championship.prizeThirdCents)}</p>
                       <div className="championship-list-progress">
                         <div className="progress-label"><span>{confirmedTeams} times confirmados</span><span>{championship.maxTeams} vagas</span></div>
                         <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>

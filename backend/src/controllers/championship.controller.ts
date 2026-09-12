@@ -11,6 +11,10 @@ const createSchema = z.object({
   numberOfGroups: z.number().int().min(1).default(1),
   teamsQualifyingPerGroup: z.number().int().min(1).default(2),
   registrationFeeCents: z.number().int().min(0).max(100000000).default(0),
+  prizeFirstCents: z.number().int().min(0).max(100000000).default(0),
+  prizeSecondCents: z.number().int().min(0).max(100000000).default(0),
+  prizeThirdCents: z.number().int().min(0).max(100000000).default(0),
+  startsAt: z.coerce.date().nullable().optional(),
 });
 
 const updateSchema = createSchema.partial();

@@ -28,6 +28,9 @@ import { MatchChat } from "../../components/MatchChat";
 
 type TabKey = "standings" | "matches" | "knockout" | "teams" | "stats";
 
+function formatChampionshipDate(value: string | null) {
+  return value ? new Date(value).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short" }) : "Data e horário a definir";
+}
 export function ChampionshipDetail() {
   const { id } = useParams<{ id: string }>();
   const [championship, setChampionship] = useState<Championship | null>(null);
@@ -276,6 +279,20 @@ export function ChampionshipDetail() {
         )}
       </div>
 
+      <section className="card mb-6 championship-prize-panel p-4">
+        <div className="mb-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-accent-400">Data do campeonato</p>
+          <p className="mt-1 text-base font-semibold text-slate-100">{formatChampionshipDate(championship.startsAt)}</p>
+        </div>
+        <div>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-accent-400">Premiação</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="championship-prize-item"><span>1º lugar</span><strong>R$ {(championship.prizeFirstCents / 100).toFixed(2).replace(".", ",")}</strong></div>
+            <div className="championship-prize-item"><span>2º lugar</span><strong>R$ {(championship.prizeSecondCents / 100).toFixed(2).replace(".", ",")}</strong></div>
+            <div className="championship-prize-item"><span>3º lugar</span><strong>R$ {(championship.prizeThirdCents / 100).toFixed(2).replace(".", ",")}</strong></div>
+          </div>
+        </div>
+      </section>
       {championship.stage === "REGISTRATION" && (
         <section className="card mb-6 border-accent-500/30 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">

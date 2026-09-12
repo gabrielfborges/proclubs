@@ -24,6 +24,10 @@ export interface ChampionshipInput {
   numberOfGroups: number;
   teamsQualifyingPerGroup: number;
   registrationFeeCents?: number;
+  prizeFirstCents?: number;
+  prizeSecondCents?: number;
+  prizeThirdCents?: number;
+  startsAt?: string | null;
 }
 
 export async function createChampionshipRequest(input: ChampionshipInput) {

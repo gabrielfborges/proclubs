@@ -18,8 +18,11 @@ const emptyForm = {
   numberOfGroups: 2,
   teamsQualifyingPerGroup: 2,
   registrationFeeCents: 0,
+  prizeFirstCents: 0,
+  prizeSecondCents: 0,
+  prizeThirdCents: 0,
+  startsAt: "",
 };
-
 export function AdminDashboard() {
   const [championships, setChampionships] = useState<Championship[]>([]);
   const [summary, setSummary] = useState<AdminSummary | null>(null);
@@ -56,6 +59,10 @@ export function AdminDashboard() {
         numberOfGroups: Number(form.numberOfGroups),
         teamsQualifyingPerGroup: Number(form.teamsQualifyingPerGroup),
         registrationFeeCents: Number(form.registrationFeeCents),
+        prizeFirstCents: Number(form.prizeFirstCents),
+        prizeSecondCents: Number(form.prizeSecondCents),
+        prizeThirdCents: Number(form.prizeThirdCents),
+        startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : null,
       });
       setForm(emptyForm);
       setFormOpen(false);
@@ -150,6 +157,27 @@ export function AdminDashboard() {
             <p className="mt-1 text-xs text-slate-500">Use 0 para campeonato gratuito.</p>
           </div>
 
+          <div className="sm:col-span-2 border-t border-base-700 pt-4">
+            <p className="mb-3 text-sm font-semibold text-slate-200">Premiação e agenda</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="label">1º lugar (R$)</label>
+                <input type="number" min={0} step="0.01" className="input" value={(form.prizeFirstCents / 100).toFixed(2)} onChange={(e) => setForm({ ...form, prizeFirstCents: Math.max(0, Math.round(Number(e.target.value || 0) * 100)) })} />
+              </div>
+              <div>
+                <label className="label">2º lugar (R$)</label>
+                <input type="number" min={0} step="0.01" className="input" value={(form.prizeSecondCents / 100).toFixed(2)} onChange={(e) => setForm({ ...form, prizeSecondCents: Math.max(0, Math.round(Number(e.target.value || 0) * 100)) })} />
+              </div>
+              <div>
+                <label className="label">3º lugar (R$)</label>
+                <input type="number" min={0} step="0.01" className="input" value={(form.prizeThirdCents / 100).toFixed(2)} onChange={(e) => setForm({ ...form, prizeThirdCents: Math.max(0, Math.round(Number(e.target.value || 0) * 100)) })} />
+              </div>
+              <div>
+                <label className="label">Data e horário de início</label>
+                <input type="datetime-local" className="input" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} />
+              </div>
+            </div>
+          </div>
           <div>
             <label className="label">Numero maximo de times</label>
             <input
@@ -213,7 +241,10 @@ export function AdminDashboard() {
                 <p className="text-xs text-slate-500">
                   {champ.teams?.length ?? 0}/{champ.maxTeams} times • {champ.numberOfGroups} grupo(s)
                 </p>
-              </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  Prêmios: R$ {(champ.prizeFirstCents / 100).toFixed(2).replace(".", ",")} / R$ {(champ.prizeSecondCents / 100).toFixed(2).replace(".", ",")} / R$ {(champ.prizeThirdCents / 100).toFixed(2).replace(".", ",")}
+                  {champ.startsAt ? ` • ${new Date(champ.startsAt).toLocaleString("pt-BR")}` : ""}
+                </p>              </div>
               <div className="flex gap-2">
                 <Link to={`/admin/campeonatos/${champ.id}`} className="btn-secondary">
                   Gerenciar

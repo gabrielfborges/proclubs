@@ -881,3 +881,24 @@ body::before {
   .championships-catalogue-heading { align-items: start; flex-direction: column; }
   .championships-catalogue-heading .championships-counter { align-items: start; }
 }
+.championship-next-prizes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+.championship-next-prizes div { min-width: 0; }
+.championship-next-prizes span { display: block; color: #858585; font-size: 10px; letter-spacing: .08em; }
+.championship-next-prizes strong { display: block; margin-top: 5px; color: #f2f2ef; font-size: 16px; }
+.championship-next-prizes div:first-child strong { color: var(--accent-main); }
+.championship-prize-panel { border-color: rgba(253,213,1,.2); }
+.championship-prize-item { border: 1px solid #343434; border-radius: 10px; padding: 12px; background: rgba(255,255,255,.025); }
+.championship-prize-item span { display: block; color: #8d8d8d; font-size: 11px; text-transform: uppercase; }
+.championship-prize-item strong { display: block; margin-top: 5px; color: var(--accent-main); font-size: 20px; }
+@media (max-width: 767px) {
+  .championship-next-prizes { gap: 8px; }
+  .championship-next-prizes strong { font-size: 14px; }
+}.featured-prizes { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 15px; color: var(--accent-main); font-size: 12px; font-weight: 750; }
+.featured-prizes span { display: inline-flex; }

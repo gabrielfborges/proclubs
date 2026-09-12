@@ -85,6 +85,10 @@ model Championship {
   numberOfGroups        Int               @default(1)
   teamsQualifyingPerGroup Int             @default(2)
   registrationFeeCents  Int               @default(0)
+  prizeFirstCents      Int               @default(0)
+  prizeSecondCents     Int               @default(0)
+  prizeThirdCents      Int               @default(0)
+  startsAt             DateTime?
   stage                 ChampionshipStage @default(REGISTRATION)
   championTeamId        String?
   championTeam          Team?             @relation("ChampionTeam", fields: [championTeamId], references: [id])
