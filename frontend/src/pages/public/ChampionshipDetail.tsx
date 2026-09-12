@@ -31,6 +31,24 @@ type TabKey = "standings" | "matches" | "knockout" | "teams" | "stats";
 function formatChampionshipDate(value: string | null) {
   return value ? new Date(value).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short" }) : "Data e horário a definir";
 }
+type PrizeBreakdown = { first: number; second: number; third: number };
+
+function calculatePrizeForTeams(championship: Championship, teamCount: number): PrizeBreakdown {
+  const maxTeams = Math.max(championship.maxTeams, 1);
+  const size = Math.max(0, Math.min(teamCount, maxTeams));
+  const totalPrize = championship.prizeFirstCents + championship.prizeSecondCents + championship.prizeThirdCents;
+  const total = Math.round((totalPrize * size) / maxTeams);
+  const second = Math.round((championship.prizeSecondCents * size) / maxTeams);
+  const thirdLimit = Math.max(8, maxTeams - 8);
+  const third = size >= thirdLimit
+    ? championship.prizeThirdCents
+    : Math.round(championship.prizeThirdCents * Math.max(size - 8, 0) / Math.max(thirdLimit - 8, 1));
+  return { first: Math.max(0, total - second - third), second, third };
+}
+
+function formatPrize(cents: number) {
+  return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
+}
 export function ChampionshipDetail() {
   const { id } = useParams<{ id: string }>();
   const [championship, setChampionship] = useState<Championship | null>(null);
@@ -279,18 +297,58 @@ export function ChampionshipDetail() {
         )}
       </div>
 
-      <section className="card mb-6 championship-prize-panel p-4">
-        <div className="mb-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent-400">Data do campeonato</p>
-          <p className="mt-1 text-base font-semibold text-slate-100">{formatChampionshipDate(championship.startsAt)}</p>
+      <section className="championship-prize-section">
+        <div className="championship-detail-section-title"><span></span><h2>PREMIAÇÃO</h2></div>
+        <div className="championship-prize-cards">
+          {[
+            ["1º LUGAR", championship.prizeFirstCents],
+            ["2º LUGAR", championship.prizeSecondCents],
+            ["3º LUGAR", championship.prizeThirdCents],
+          ].map(([label, value], index) => (
+            <div key={label} className={index === 0 ? "championship-prize-card first" : "championship-prize-card"}>
+              <span>{label}</span>
+              <strong>{formatPrize(value as number)}</strong>
+              <small>NO PIX</small>
+            </div>
+          ))}
         </div>
-        <div>
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-accent-400">Premiação</p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="championship-prize-item"><span>1º lugar</span><strong>R$ {(championship.prizeFirstCents / 100).toFixed(2).replace(".", ",")}</strong></div>
-            <div className="championship-prize-item"><span>2º lugar</span><strong>R$ {(championship.prizeSecondCents / 100).toFixed(2).replace(".", ",")}</strong></div>
-            <div className="championship-prize-item"><span>3º lugar</span><strong>R$ {(championship.prizeThirdCents / 100).toFixed(2).replace(".", ",")}</strong></div>
+      </section>
+
+      <section className="championship-format-section">
+        <div className="championship-detail-section-title"><span></span><h2>FORMATO</h2></div>
+        <div className="championship-format-panel">
+          <div className="championship-groups-grid">
+            {Array.from({ length: championship.numberOfGroups }, (_, index) => (
+              <div key={index} className="championship-group-mark">
+                <strong>{String.fromCharCode(65 + index)}</strong>
+                <i></i><i></i><i></i><i></i>
+              </div>
+            ))}
           </div>
+          <div className="championship-format-copy">
+            <p><strong>{championship.numberOfGroups}</strong> grupos de <strong>{Math.ceil(championship.maxTeams / Math.max(championship.numberOfGroups, 1))}</strong>, com <strong>{championship.teamsQualifyingPerGroup}</strong> passando de cada.</p>
+            <div><strong>{championship.numberOfGroups * championship.teamsQualifyingPerGroup}</strong><span>CLASSIFICAM</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="championship-reduced-prizes">
+        <h3>E SE NÃO ENCHER</h3>
+        <p>A organização confirma o tamanho conforme os inscritos e o formato previsto. Cada tamanho tem sua premiação.</p>
+        <p className="championship-reduced-note">A premiação diminui proporcionalmente quando a edição fecha com menos times.</p>
+        <div className="championship-prize-table">
+          {Array.from({ length: Math.max(1, Math.ceil((championship.maxTeams - 8) / 4) + 1) }, (_, index) => championship.maxTeams - index * 4)
+            .filter((size) => size >= 8)
+            .concat(championship.maxTeams < 8 ? [championship.maxTeams] : [])
+            .map((size, index, sizes) => {
+              const prize = calculatePrizeForTeams(championship, size);
+              return (
+                <div key={`${size}-${index}`} className="championship-prize-row">
+                  <span>Com {size} times</span>
+                  <strong>{formatPrize(prize.first)} · {formatPrize(prize.second)} · {formatPrize(prize.third)}</strong>
+                </div>
+              );
+            })}
         </div>
       </section>
       {championship.stage === "REGISTRATION" && (

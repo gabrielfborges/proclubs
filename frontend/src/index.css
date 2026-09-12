@@ -902,3 +902,43 @@ body::before {
   .championship-next-prizes strong { font-size: 14px; }
 }.featured-prizes { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 15px; color: var(--accent-main); font-size: 12px; font-weight: 750; }
 .featured-prizes span { display: inline-flex; }
+/* Championship detail: prize tiers and automatic reduced-size table */
+.championship-prize-section, .championship-format-section, .championship-reduced-prizes { margin-bottom: 34px; }
+.championship-detail-section-title { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.championship-detail-section-title > span { width: 4px; height: 18px; border-radius: 2px; background: var(--accent-main); }
+.championship-detail-section-title h2 { margin: 0; color: #f2f2ef; font-size: 19px; line-height: 1; }
+.championship-prize-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.championship-prize-card { min-height: 110px; border: 1px solid #383838; border-radius: 12px; padding: 17px 16px; background: #202020; }
+.championship-prize-card.first { border-color: rgba(253,213,1,.7); }
+.championship-prize-card span { display: block; color: #a6a6a2; font-size: 11px; letter-spacing: .08em; }
+.championship-prize-card strong { display: block; margin-top: 10px; color: #f0f0ed; font-size: 25px; line-height: 1; }
+.championship-prize-card.first strong { color: var(--accent-main); }
+.championship-prize-card small { display: block; margin-top: 7px; color: #8b8b88; font-size: 10px; }
+.championship-format-panel { display: grid; grid-template-columns: 225px minmax(0, 1fr); min-height: 155px; border: 1px solid #383838; padding: 22px; background: #202020; clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); }
+.championship-groups-grid { display: grid; grid-template-columns: repeat(4, 1fr); align-content: center; gap: 14px 12px; padding-right: 22px; border-right: 1px solid #333; }
+.championship-group-mark { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 5px; }
+.championship-group-mark strong { grid-column: 1 / -1; color: #aaa; font-size: 10px; text-align: center; }
+.championship-group-mark i { display: block; height: 5px; border-radius: 4px; background: #454545; }
+.championship-group-mark i:nth-of-type(-n+2) { background: var(--accent-main); }
+.championship-format-copy { display: flex; flex-direction: column; justify-content: center; gap: 18px; padding-left: 28px; }
+.championship-format-copy p { margin: 0; color: #d9d9d5; font-size: 15px; }
+.championship-format-copy p strong, .championship-format-copy div strong { color: var(--accent-main); font-size: 20px; }
+.championship-format-copy div { display: flex; align-items: baseline; gap: 10px; padding-top: 16px; border-top: 1px solid #333; }
+.championship-format-copy div strong { font-size: 24px; }
+.championship-format-copy div span { color: #989894; font-size: 11px; letter-spacing: .1em; }
+.championship-reduced-prizes { border: 1px solid #383838; border-radius: 12px; padding: 18px 16px; background: #202020; }
+.championship-reduced-prizes h3 { margin: 0 0 7px; color: #f2f2ef; font-size: 15px; }
+.championship-reduced-prizes > p { margin: 0; color: #9e9e9a; font-size: 13px; line-height: 1.4; }
+.championship-reduced-prizes .championship-reduced-note { margin-top: 8px; color: var(--accent-main); }
+.championship-prize-table { display: grid; gap: 10px; margin-top: 18px; }
+.championship-prize-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 8px; color: #a8a8a4; font-size: 14px; }
+.championship-prize-row strong { color: #f2f2ef; font-size: 14px; white-space: nowrap; }
+@media (max-width: 767px) {
+  .championship-prize-cards { grid-template-columns: 1fr; }
+  .championship-prize-card { min-height: 102px; }
+  .championship-format-panel { grid-template-columns: 1fr; gap: 18px; padding: 16px; }
+  .championship-groups-grid { grid-template-columns: repeat(4, 1fr); padding: 0 0 18px; border-right: 0; border-bottom: 1px solid #333; }
+  .championship-format-copy { padding-left: 0; }
+  .championship-prize-row { align-items: start; flex-direction: column; gap: 3px; padding: 0 4px; }
+  .championship-prize-row strong { font-size: 13px; }
+}
