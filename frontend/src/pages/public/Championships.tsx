@@ -5,6 +5,7 @@ import { Championship, ChampionshipStatus } from "../../types";
 import { Loading, ErrorBox } from "../../components/Loading";
 import { StatusBadge } from "../../components/StatusBadge";
 import { getApiErrorMessage } from "../../api/client";
+import { calculatePrizeForTeams, formatPrize } from "../../utils/prizes";
 
 const TABS: { key: ChampionshipStatus; label: string }[] = [
   { key: "OPEN", label: "Abertos" },
@@ -73,9 +74,9 @@ export function Championships() {
               <p className="championship-next-description">
                 {nextChampionship.description || "Monte seu time e entre na disputa pelo título."}
               </p>              <div className="championship-next-prizes">
-                <div><span>1º LUGAR</span><strong>{formatFee(nextChampionship.prizeFirstCents)}</strong></div>
-                <div><span>2º LUGAR</span><strong>{formatFee(nextChampionship.prizeSecondCents)}</strong></div>
-                <div><span>3º LUGAR</span><strong>{formatFee(nextChampionship.prizeThirdCents)}</strong></div>
+                <div><span>1º LUGAR</span><strong>{formatPrize(calculatePrizeForTeams(nextChampionship, nextChampionship.maxTeams).first)}</strong></div>
+                <div><span>2º LUGAR</span><strong>{formatPrize(calculatePrizeForTeams(nextChampionship, nextChampionship.maxTeams).second)}</strong></div>
+                <div><span>3º LUGAR</span><strong>{formatPrize(calculatePrizeForTeams(nextChampionship, nextChampionship.maxTeams).third)}</strong></div>
               </div>
               <p className="championship-next-meta">
                 <span aria-hidden="true">▣</span> {formatDateTime(nextChampionship.startsAt)} · {nextChampionship.teams?.length || 0} times inscritos · Até {nextChampionship.maxTeams} times · {nextChampionship.numberOfGroups} grupos
@@ -134,7 +135,7 @@ export function Championships() {
                       </div>
                       <h3>{championship.name}</h3>
                       <p>{championship.description || "Disputa oficial de EA Sports FC Pro Clubs."}</p>
-                      <p className="mt-2 text-xs text-slate-500">{formatDateTime(championship.startsAt)} · Prêmios: {formatFee(championship.prizeFirstCents)} / {formatFee(championship.prizeSecondCents)} / {formatFee(championship.prizeThirdCents)}</p>
+                      <p className="mt-2 text-xs text-slate-500">{formatDateTime(championship.startsAt)} · Prêmios: {formatPrize(calculatePrizeForTeams(championship, championship.maxTeams).first)} / {formatPrize(calculatePrizeForTeams(championship, championship.maxTeams).second)} / {formatPrize(calculatePrizeForTeams(championship, championship.maxTeams).third)}</p>
                       <div className="championship-list-progress">
                         <div className="progress-label"><span>{confirmedTeams} times confirmados</span><span>{championship.maxTeams} vagas</span></div>
                         <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>

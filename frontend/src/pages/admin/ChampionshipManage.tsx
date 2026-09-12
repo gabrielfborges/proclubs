@@ -145,7 +145,7 @@ export function ChampionshipManage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-base-700 bg-base-900/40 p-4">
         <div>
           <p className="text-sm font-semibold text-slate-100">Premiação e agenda</p>
-          <p className="mt-1 text-xs text-slate-500">Defina os valores e a data/horário desta edição.</p>
+          <p className="mt-1 text-xs text-slate-500">O total distribuído será 80% das inscrições. Estes valores definem a proporção entre os três lugares.</p>
         </div>
         <button type="button" className="btn-secondary" onClick={() => setDetailsOpen((open) => !open)}>
           {detailsOpen ? "Fechar edição" : "Editar prêmio e agenda"}
@@ -166,15 +166,15 @@ export function ChampionshipManage() {
           }}
         >
           <div>
-            <label className="label">1º lugar (R$)</label>
+            <label className="label">Referência 1º lugar (R$)</label>
             <input type="number" min={0} step="0.01" className="input" value={(detailsForm.prizeFirstCents / 100).toFixed(2)} onChange={(event) => setDetailsForm({ ...detailsForm, prizeFirstCents: Math.max(0, Math.round(Number(event.target.value || 0) * 100)) })} />
           </div>
           <div>
-            <label className="label">2º lugar (R$)</label>
+            <label className="label">Referência 2º lugar (R$)</label>
             <input type="number" min={0} step="0.01" className="input" value={(detailsForm.prizeSecondCents / 100).toFixed(2)} onChange={(event) => setDetailsForm({ ...detailsForm, prizeSecondCents: Math.max(0, Math.round(Number(event.target.value || 0) * 100)) })} />
           </div>
           <div>
-            <label className="label">3º lugar (R$)</label>
+            <label className="label">Referência 3º lugar (R$)</label>
             <input type="number" min={0} step="0.01" className="input" value={(detailsForm.prizeThirdCents / 100).toFixed(2)} onChange={(event) => setDetailsForm({ ...detailsForm, prizeThirdCents: Math.max(0, Math.round(Number(event.target.value || 0) * 100)) })} />
           </div>
           <div>

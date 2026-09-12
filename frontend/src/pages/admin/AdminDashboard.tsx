@@ -159,17 +159,18 @@ export function AdminDashboard() {
 
           <div className="sm:col-span-2 border-t border-base-700 pt-4">
             <p className="mb-3 text-sm font-semibold text-slate-200">Premiação e agenda</p>
+            <p className="mb-3 text-xs text-slate-500">O total distribuído será 80% das inscrições. Estes valores definem a proporção entre os três lugares.</p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <label className="label">1º lugar (R$)</label>
+                <label className="label">Referência 1º lugar (R$)</label>
                 <input type="number" min={0} step="0.01" className="input" value={(form.prizeFirstCents / 100).toFixed(2)} onChange={(e) => setForm({ ...form, prizeFirstCents: Math.max(0, Math.round(Number(e.target.value || 0) * 100)) })} />
               </div>
               <div>
-                <label className="label">2º lugar (R$)</label>
+                <label className="label">Referência 2º lugar (R$)</label>
                 <input type="number" min={0} step="0.01" className="input" value={(form.prizeSecondCents / 100).toFixed(2)} onChange={(e) => setForm({ ...form, prizeSecondCents: Math.max(0, Math.round(Number(e.target.value || 0) * 100)) })} />
               </div>
               <div>
-                <label className="label">3º lugar (R$)</label>
+                <label className="label">Referência 3º lugar (R$)</label>
                 <input type="number" min={0} step="0.01" className="input" value={(form.prizeThirdCents / 100).toFixed(2)} onChange={(e) => setForm({ ...form, prizeThirdCents: Math.max(0, Math.round(Number(e.target.value || 0) * 100)) })} />
               </div>
               <div>
