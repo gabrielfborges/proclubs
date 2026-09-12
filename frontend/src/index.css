@@ -764,12 +764,15 @@ body::before {
 
   .mobile-bottom-nav {
     position: fixed;
-    inset: auto 50% max(12px, env(safe-area-inset-bottom)) auto;
+    top: auto;
+    right: auto;
+    bottom: 12px;
+    left: 50%;
     z-index: 60;
     display: flex;
     width: min(calc(100% - 32px), 310px);
     height: 60px;
-    transform: translateX(50%);
+    transform: translateX(-50%);
     align-items: center;
     gap: 4px;
     padding: 5px;
