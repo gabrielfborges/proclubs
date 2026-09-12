@@ -683,7 +683,7 @@ body::before {
   display: none;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 900px) {
   body { padding-bottom: 86px; }
   .app-main { padding-top: 64px; padding-bottom: 86px; }
 
@@ -800,7 +800,7 @@ body::before {
   }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 901px) {
   .mobile-top-actions,
   .mobile-bottom-nav { display: none !important; }
 }
