@@ -23,7 +23,7 @@ export function AuthCallback() {
     }
 
     completeLogin(token)
-      .then(() => navigate("/", { replace: true }))
+      .then(() => navigate("/campeonatos", { replace: true }))
       .catch(() => {
         localStorage.removeItem("fc_auth_token");
         localStorage.removeItem("fc_user");

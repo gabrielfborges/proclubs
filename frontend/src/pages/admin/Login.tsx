@@ -26,7 +26,7 @@ export function Login() {
     setLoading(true);
     try {
       const user = await login(identifier, password);
-      const redirectTo = user.role === "ADMIN" ? state?.from?.pathname || "/admin" : "/";
+      const redirectTo = user.role === "ADMIN" ? state?.from?.pathname || "/admin" : "/campeonatos";
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(getApiErrorMessage(err));

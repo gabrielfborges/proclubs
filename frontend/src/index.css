@@ -807,3 +807,77 @@ body::before {
   .mobile-top-actions,
   .mobile-bottom-nav { display: none !important; }
 }
+/* Championships catalogue inspired by the new reference */
+.championships-spotlight {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+  padding: 0 0 17px;
+  border-bottom: 1px solid #303030;
+}
+.championships-spotlight-heading { border-left: 4px solid var(--accent-main); padding-left: 12px; }
+.championships-spotlight h1 { margin: 0; font-size: clamp(1.55rem, 3vw, 2.25rem); line-height: 1; }
+.championships-spotlight .section-eyebrow { display: none; }
+.championships-spotlight .section-link { margin-bottom: 2px; }
+.championship-next-card {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  padding: 20px;
+  border: 1px solid rgba(253, 213, 1, .7);
+  border-radius: 0;
+  background: linear-gradient(135deg, rgba(31,31,31,.98), rgba(28,28,28,.9));
+  color: inherit;
+  text-decoration: none;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 28px), calc(100% - 28px) 100%, 0 100%);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+.championship-next-card::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: repeating-linear-gradient(-18deg, transparent 0 25px, rgba(253,213,1,.025) 26px 29px);
+  content: "";
+  pointer-events: none;
+}
+.championship-next-card > * { position: relative; z-index: 1; }
+.championship-next-card:hover { border-color: var(--accent-main); background: #242424; transform: translateY(-2px); }
+.championship-next-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.championship-next-card h2 { max-width: 650px; margin: 25px 0 23px; color: #f4f4f1; font-size: clamp(1.7rem, 4vw, 2.35rem); line-height: 1.05; text-transform: uppercase; }
+.championship-next-info { display: flex; flex-wrap: wrap; gap: 48px; }
+.championship-next-info div { min-width: 130px; }
+.championship-next-info span { display: block; color: #929292; font-size: 10px; letter-spacing: .1em; }
+.championship-next-info strong { display: block; margin-top: 6px; color: var(--accent-main); font-size: 25px; line-height: 1; }
+.championship-next-info div:nth-child(2) strong { color: #f1f1ee; }
+.championship-next-description { max-width: 680px; margin: 23px 0 10px; color: #b5b5b1; font-size: 13px; line-height: 1.45; }
+.championship-next-meta { margin: 0; color: #a5a5a1; font-size: 12px; }
+.championship-next-meta span { margin-right: 6px; color: var(--accent-main); }
+.championship-next-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 26px; padding-top: 16px; border-top: 1px solid rgba(253,213,1,.28); color: var(--accent-main); font-size: 13px; }
+.championship-next-footer span { font-size: 20px; }
+.championship-next-card.empty-featured { clip-path: none; border-color: #3a3a3a; }
+.championship-next-card.empty-featured h2 { margin: 15px 0 8px; }
+.championship-next-card.empty-featured p:last-child { margin: 0; color: #888; }
+.championships-catalogue { margin-top: 52px; }
+.championships-catalogue-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+.championships-catalogue-heading h2 { margin: 0; font-size: clamp(1.35rem, 3vw, 1.85rem); line-height: 1; }
+.championships-catalogue-heading .section-eyebrow { margin-bottom: 9px; }
+.championships-catalogue-heading .championships-counter { align-items: end; padding: 0; color: #858585; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.championships-catalogue-heading .championships-counter::first-line { color: var(--accent-main); }
+.championships-catalogue .championships-toolbar { margin-top: 0; }
+.championships-catalogue .championship-list-card { border-radius: 0; }
+.championships-catalogue .championship-list-main h3 { margin: 17px 0 8px; color: var(--text-main); font-size: 25px; line-height: 1; }
+
+@media (max-width: 767px) {
+  .championships-page { padding-top: 32px; }
+  .championships-spotlight { align-items: start; flex-direction: column; gap: 12px; padding-bottom: 15px; }
+  .championships-spotlight h1 { font-size: 1.55rem; }
+  .championship-next-card { padding: 18px; }
+  .championship-next-card h2 { margin: 22px 0 21px; font-size: 1.8rem; }
+  .championship-next-info { gap: 22px; }
+  .championship-next-info strong { font-size: 22px; }
+  .championships-catalogue { margin-top: 40px; }
+  .championships-catalogue-heading { align-items: start; flex-direction: column; }
+  .championships-catalogue-heading .championships-counter { align-items: start; }
+}

@@ -55,7 +55,7 @@ export function Dashboard() {
             Seu club em campo. <em>A disputa organizada</em>, do primeiro jogo à taça.
           </p>
           <div className="hero-actions">
-            <Link to={featured ? `/campeonatos/${featured.id}` : "/"} className="btn-primary hero-cta">
+            <Link to="/campeonatos" className="btn-primary hero-cta">
               QUERO JOGAR
             </Link>
             <span className="hero-note">Inscreva seu club no próximo campeonato</span>
